@@ -3,7 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pixel Billboard – купи пиксель навсегда</title>
+  <title>Pixel Billboard — купи пиксель навсегда | Вечная пиксельная реклама</title>
+
+  <!-- ===== SEO: основные метатеги ===== -->
+  <meta name="description" content="Pixel Billboard — вечный цифровой билборд. Купи пиксель или блок 10×10 за 50 ₽/пиксель, размести логотип, картинку или ссылку на своей рекламе навсегда. Игры, чат и магазин внутри.">
+  <meta name="keywords" content="pixel billboard, пиксельный биллборд, купить пиксель, реклама в интернете, вечная реклама, пиксельная реклама, разместить логотип">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="author" content="Pixel Billboard">
+
+  <!-- ===== SEO: Open Graph (превью в соцсетях/мессенджерах) ===== -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Pixel Billboard">
+  <meta property="og:title" content="Pixel Billboard — купи пиксель навсегда">
+  <meta property="og:description" content="Вечный цифровой билборд: купи пиксель за 50 ₽ и размести свой логотип или ссылку навсегда. Игры, чат, магазин.">
+  <meta property="og:locale" content="ru_RU">
+
+  <!-- ===== SEO: Twitter/X Card ===== -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Pixel Billboard — купи пиксель навсегда">
+  <meta name="twitter:description" content="Вечный цифровой билборд: купи пиксель за 50 ₽ и размести свой логотип или ссылку навсегда.">
+
+  <!-- ===== Ускорение загрузки внешних ресурсов ===== -->
+  <link rel="preconnect" href="https://mc.yandex.ru">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
+
+  <!-- ===== Структурированные данные (Schema.org) для поисковиков ===== -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Pixel Billboard",
+    "description": "Вечный цифровой билборд: купи пиксель и размести свой логотип, картинку или ссылку навсегда.",
+    "inLanguage": "ru"
+  }
+  </script>
+
   <!-- ↓↓↓ Иконка ↓↓↓ -->
   <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
  
@@ -533,6 +568,27 @@ window.redraw = redraw;
   const effectsLayer = document.getElementById('effects-layer');
   const easterInput = document.getElementById('easter-input');
 
+  // ===== Блокировка поля ввода кода на время игры =====
+  // Раньше на телефоне поле "Код..." оставалось в фокусе после ввода
+  // команды (SNAKE, TETRIS и т.д.), и любое касание/свайп по игровому
+  // полю снова открывало экранную клавиатуру. Эти функции принудительно
+  // снимают фокус и временно блокируют поле на время игры.
+  let easterInputLockCount = 0;
+  window.pbLockCodeInput = function() {
+    easterInputLockCount++;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    easterInput.blur();
+    easterInput.setAttribute('readonly', 'readonly');
+    easterInput.style.pointerEvents = 'none';
+  };
+  window.pbUnlockCodeInput = function() {
+    easterInputLockCount = Math.max(0, easterInputLockCount - 1);
+    if (easterInputLockCount === 0) {
+      easterInput.removeAttribute('readonly');
+      easterInput.style.pointerEvents = '';
+    }
+  };
+
   const canvas = window.canvas;
   if (!canvas) { console.warn('canvas не найден'); return; }
   const ctx = canvas.getContext('2d');
@@ -682,6 +738,7 @@ easterInput.addEventListener('keydown', function(e) {
  
    
     function startSnake() {
+  window.pbLockCodeInput();
   // Создаём canvas для игры
   const snakeCanvas = document.createElement('canvas');
   snakeCanvas.width = canvas.width;
@@ -790,6 +847,7 @@ easterInput.addEventListener('keydown', function(e) {
     gameOver = true;
     drawSnake();
     showMessage('Нет места для змейки! Попробуй позже.', '#f00');
+    window.pbUnlockCodeInput();
     setTimeout(() => { snakeCanvas.remove(); safeRedraw(); }, 2000);
     return;
   }
@@ -809,12 +867,34 @@ easterInput.addEventListener('keydown', function(e) {
       sctx.fillRect(food.x * CELL_SIZE, food.y * CELL_SIZE, CELL_SIZE - 1, CELL_SIZE - 1);
     }
     if (gameOver) {
-      sctx.fillStyle = 'rgba(0,0,0,0.7)';
+      sctx.fillStyle = 'rgba(0,0,0,0.75)';
       sctx.fillRect(0, 0, snakeCanvas.width, snakeCanvas.height);
+      const cx = snakeCanvas.width / 2, cy = snakeCanvas.height / 2;
+      const boxW = Math.min(260, snakeCanvas.width - 20), boxH = 90;
+      sctx.save();
+      sctx.shadowColor = 'rgba(0,204,0,0.6)';
+      sctx.shadowBlur = 15;
+      sctx.fillStyle = '#141428';
+      sctx.strokeStyle = '#00cc00';
+      sctx.lineWidth = 2;
+      const bx = cx - boxW / 2, by = cy - boxH / 2, r = 12;
+      sctx.beginPath();
+      sctx.moveTo(bx + r, by);
+      sctx.arcTo(bx + boxW, by, bx + boxW, by + boxH, r);
+      sctx.arcTo(bx + boxW, by + boxH, bx, by + boxH, r);
+      sctx.arcTo(bx, by + boxH, bx, by, r);
+      sctx.arcTo(bx, by, bx + boxW, by, r);
+      sctx.closePath();
+      sctx.fill();
+      sctx.stroke();
+      sctx.restore();
       sctx.fillStyle = '#fff';
-      sctx.font = '20px monospace';
+      sctx.font = 'bold 18px "Segoe UI", monospace';
       sctx.textAlign = 'center';
-      sctx.fillText('Игра окончена!', snakeCanvas.width / 2, snakeCanvas.height / 2);
+      sctx.fillText('🐍 Игра окончена!', cx, cy - 10);
+      sctx.font = '14px monospace';
+      sctx.fillStyle = '#0f0';
+      sctx.fillText('Счёт: ' + (snake.length - 3), cx, cy + 16);
     }
   }
 
@@ -834,6 +914,8 @@ easterInput.addEventListener('keydown', function(e) {
       }
       drawSnake();
       clearInterval(gameInterval);
+      window.removeEventListener('keydown', handleKey);
+      window.pbUnlockCodeInput();
       setTimeout(() => { snakeCanvas.remove(); safeRedraw(); }, 2000);
       return;
     }
@@ -845,6 +927,8 @@ easterInput.addEventListener('keydown', function(e) {
         gameOver = true;
         drawSnake();
         clearInterval(gameInterval);
+        window.removeEventListener('keydown', handleKey);
+        window.pbUnlockCodeInput();
         setTimeout(() => { snakeCanvas.remove(); safeRedraw(); }, 2000);
         return;
       }
@@ -873,6 +957,7 @@ easterInput.addEventListener('keydown', function(e) {
   const cleanup = () => {
     clearInterval(gameInterval);
     window.removeEventListener('keydown', handleKey);
+    window.pbUnlockCodeInput();
     if (snakeCanvas.parentNode) snakeCanvas.remove();
     safeRedraw();
   };
@@ -1040,10 +1125,11 @@ easterInput.addEventListener('keydown', function(e) {
   // bit
   
   function startBitGame() {
+  window.pbLockCodeInput();
   let score = 0, timeLeft = 30;
   const scoreEl = document.createElement('div');
-  scoreEl.style.cssText = 'position:fixed; top:20px; left:20px; color:white; background:black; padding:5px 10px; z-index:1000; font-family:monospace; font-size:18px;';
-  scoreEl.textContent = `Попаданий: 0 | Время: 30`;
+  scoreEl.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); color:#fff; background:linear-gradient(180deg,#1e1e35,#14142a); border:2px solid #4caf50; box-shadow:0 4px 18px rgba(0,0,0,0.5), 0 0 15px rgba(76,175,80,0.25); padding:8px 18px; z-index:1000; font-family:"Segoe UI",monospace; font-size:15px; border-radius:10px; text-align:center; white-space:nowrap;';
+  scoreEl.innerHTML = '🎯 Попаданий: <b style="color:#4caf50">0</b> &nbsp;|&nbsp; ⏱ Время: <b style="color:#4caf50">30</b>';
   document.body.appendChild(scoreEl);
 
   let spawnInterval; // объявляем ДО использования
@@ -1062,23 +1148,25 @@ easterInput.addEventListener('keydown', function(e) {
       if (coins > 0) window.addCoins(coins);
       if (window.updateRecord('bit', score)) window.addCoins(10);
       showMessage(`Игра окончена! Попаданий: ${score}. Рекорд: ${localStorage.getItem('bitRecord')}`, '#ff0', 3000);
+      window.pbUnlockCodeInput();
       return;
     }
 
     timeLeft--;
-    scoreEl.textContent = `Попаданий: ${score} | Время: ${timeLeft}`;
+    scoreEl.innerHTML = `🎯 Попаданий: <b style="color:#4caf50">${score}</b> &nbsp;|&nbsp; ⏱ Время: <b style="color:#4caf50">${timeLeft}</b>`;
   }, 1000);
 
   spawnInterval = setInterval(() => {
     const target = document.createElement('div');
     target.className = 'bit-target';
-    target.style.cssText = 'position:absolute; width:20px; height:20px; background:red; z-index:999; cursor:pointer;';
-    target.style.left = Math.random() * (container.offsetWidth - 20) + 'px';
-    target.style.top = Math.random() * (container.offsetHeight - 20) + 'px';
+    target.style.cssText = 'position:absolute; width:34px; height:34px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #ff8a80, #e74c3c 70%); box-shadow:0 0 12px rgba(231,76,60,0.8), inset 0 0 6px rgba(255,255,255,0.4); z-index:999; cursor:pointer; animation: bitPop 0.15s ease-out;';
+    target.style.left = Math.random() * (container.offsetWidth - 34) + 'px';
+    target.style.top = Math.random() * (container.offsetHeight - 34) + 'px';
     container.appendChild(target);
     target.addEventListener('click', (e) => {
       e.stopPropagation();
       score++;
+      target.remove();
     });
     setTimeout(() => target.remove(), 2000);
   }, 800);
@@ -1094,6 +1182,7 @@ easterInput.addEventListener('keydown', function(e) {
       if (coins > 0) window.addCoins(coins);
       if (window.updateRecord('bit', score)) window.addCoins(10);
       showMessage(`Игра окончена! Попаданий: ${score}. Рекорд: ${localStorage.getItem('bitRecord')}`, '#ff0', 3000);
+      window.pbUnlockCodeInput();
     }
   }, 31000);
 }
@@ -1187,14 +1276,20 @@ addEasterEgg('bankai', 'BANKAI', function() {
 
 // ================= 2048 =================
 addEasterEgg('2048', '2048', function() {
+  window.pbLockCodeInput();
   // Создаём модальное окно
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:200000;display:flex;align-items:center;justify-content:center;';
+  overlay.className = 'game-overlay';
   document.body.appendChild(overlay);
 
   const gameContainer = document.createElement('div');
-  gameContainer.style.cssText = 'background:#1a1a2e;border:2px solid #4caf50;border-radius:15px;padding:15px;display:flex;flex-direction:column;align-items:center;';
+  gameContainer.className = 'game-panel';
   overlay.appendChild(gameContainer);
+
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'game-panel-title';
+  titleDiv.textContent = '🔢 2048';
+  gameContainer.appendChild(titleDiv);
 
 // Запрещаем pull-to-refresh на время игры
 gameContainer.addEventListener('touchmove', function(e) {
@@ -1213,7 +1308,7 @@ gameContainer.addEventListener('touchmove', function(e) {
 
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '✕ Закрыть';
-  closeBtn.style.cssText = 'margin-top:10px;padding:5px 15px;background:#c00;color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:sans-serif;';
+  closeBtn.className = 'game-btn-close';
   gameContainer.appendChild(closeBtn);
 
   let board = Array(4).fill().map(() => Array(4).fill(0));
@@ -1312,6 +1407,8 @@ gameContainer.addEventListener('touchmove', function(e) {
       if (isNewRecord) window.addCoins(10);
     }
     if (typeof showMessage === 'function') showMessage(`Игра окончена! Макс. плитка: ${maxTile}. Монет: ${coinsEarned}`, '#ff0');
+    window.removeEventListener('keydown', handleKey);
+    window.pbUnlockCodeInput();
     setTimeout(() => { overlay.remove(); if (typeof safeRedraw === 'function') safeRedraw(); }, 2000);
   }
 
@@ -1351,6 +1448,7 @@ document.body.style.overflow = '';
 
   setTimeout(() => {
     window.removeEventListener('keydown', handleKey);
+    window.pbUnlockCodeInput();
     if (overlay.parentNode) overlay.remove();
   }, 300000);
 });
@@ -1358,18 +1456,24 @@ document.body.style.overflow = '';
 
 // ================= ТЕТРИС (компактный, с превью) =================
 addEasterEgg('tetris', 'TETRIS', function() {
+  window.pbLockCodeInput();
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:200000;display:flex;align-items:center;justify-content:center;';
+  overlay.className = 'game-overlay';
   document.body.appendChild(overlay);
   overlay.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
   const gameContainer = document.createElement('div');
-  gameContainer.style.cssText = 'background:#1a1a2e;border:2px solid #4caf50;border-radius:15px;padding:15px;display:flex;flex-direction:column;align-items:center;max-width:95vw;';
+  gameContainer.className = 'game-panel';
   overlay.appendChild(gameContainer);
+
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'game-panel-title';
+  titleDiv.textContent = '🧱 Тетрис';
+  gameContainer.appendChild(titleDiv);
 
   // Верхняя панель: очки и следующая фигура
   const topPanel = document.createElement('div');
-  topPanel.style.cssText = 'display:flex;justify-content:space-between;width:100%;margin-bottom:10px;color:#fff;font-family:monospace;';
+  topPanel.style.cssText = 'display:flex;justify-content:space-between;width:100%;margin-bottom:10px;color:#fff;font-family:monospace;gap:16px;';
   gameContainer.appendChild(topPanel);
 
   // Очки
@@ -1399,18 +1503,20 @@ addEasterEgg('tetris', 'TETRIS', function() {
 
   // Кнопки управления
   const controls = document.createElement('div');
-  controls.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin-top:10px;';
+  controls.className = 'game-controls-row';
   gameContainer.appendChild(controls);
   const btnLeft = document.createElement('button'); btnLeft.textContent = '◀';
   const btnRight = document.createElement('button'); btnRight.textContent = '▶';
   const btnDown = document.createElement('button'); btnDown.textContent = '▼';
   const btnRotate = document.createElement('button'); btnRotate.textContent = '↻';
   const btnHardDrop = document.createElement('button'); btnHardDrop.textContent = '⏬';
-  const btnClose = document.createElement('button'); btnClose.textContent = '✕ Закрыть';
-  [btnLeft, btnRight, btnDown, btnRotate, btnHardDrop, btnClose].forEach(b => {
-    b.style.cssText = 'padding:10px 15px;background:#444;color:#fff;border:none;border-radius:5px;font-size:20px;cursor:pointer;';
+  [btnLeft, btnRight, btnDown, btnRotate, btnHardDrop].forEach(b => {
+    b.className = 'game-btn';
     controls.appendChild(b);
   });
+  const btnClose = document.createElement('button'); btnClose.textContent = '✕ Закрыть';
+  btnClose.className = 'game-btn-close';
+  gameContainer.appendChild(btnClose);
 
   // Игровые переменные
   const tetrominos = [
@@ -1519,6 +1625,8 @@ addEasterEgg('tetris', 'TETRIS', function() {
     if (coins > 0 && window.addCoins) window.addCoins(coins);
     if (window.updateRecord && window.updateRecord('tetris', linesCleared)) window.addCoins(10);
     if (typeof showMessage === 'function') showMessage(`Тетрис окончен! Линий: ${linesCleared}. Монет: ${coins}`, '#0ff');
+    window.removeEventListener('keydown', handleKey);
+    window.pbUnlockCodeInput();
     setTimeout(() => { overlay.remove(); if (typeof safeRedraw === 'function') safeRedraw(); }, 2000);
   }
 
@@ -1536,23 +1644,29 @@ addEasterEgg('tetris', 'TETRIS', function() {
   nextPreview(); spawnPiece(); draw();
   dropInterval = setInterval(() => { if (!gameOver) moveDown(); }, 500);
 
-  setTimeout(() => { clearInterval(dropInterval); window.removeEventListener('keydown', handleKey); overlay.remove(); }, 300000);
+  setTimeout(() => { clearInterval(dropInterval); window.removeEventListener('keydown', handleKey); window.pbUnlockCodeInput(); overlay.remove(); }, 300000);
 });
   
   
 // ================= MEMORY (Мемори) =================
 addEasterEgg('memory', 'MEMORY', function() {
+  window.pbLockCodeInput();
   // Модальное окно
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:200000;display:flex;align-items:center;justify-content:center;';
+  overlay.className = 'game-overlay';
   document.body.appendChild(overlay);
 
   // Блокируем pull-to-refresh
   overlay.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
 
   const gameContainer = document.createElement('div');
-  gameContainer.style.cssText = 'background:#1a1a2e;border:2px solid #4caf50;border-radius:15px;padding:15px;display:flex;flex-direction:column;align-items:center;max-width:95vw;';
+  gameContainer.className = 'game-panel';
   overlay.appendChild(gameContainer);
+
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'game-panel-title';
+  titleDiv.textContent = '🧠 Мемори';
+  gameContainer.appendChild(titleDiv);
 
   // Информация
   const infoDiv = document.createElement('div');
@@ -1568,7 +1682,7 @@ addEasterEgg('memory', 'MEMORY', function() {
   // Кнопка закрытия
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '✕ Закрыть';
-  closeBtn.style.cssText = 'margin-top:10px;padding:8px 15px;background:#c00;color:#fff;border:none;border-radius:5px;cursor:pointer;font-family:sans-serif;';
+  closeBtn.className = 'game-btn-close';
   gameContainer.appendChild(closeBtn);
 
   // Эмодзи для карточек (более 30 штук)
@@ -1721,6 +1835,7 @@ addEasterEgg('memory', 'MEMORY', function() {
     if (typeof showMessage === 'function') {
       showMessage(`Мемори окончено! Пройдено уровней: ${levelsCleared}. Монет: ${levelsCleared * 2}`, '#ff0');
     }
+    window.pbUnlockCodeInput();
     setTimeout(() => {
       overlay.remove();
       if (typeof safeRedraw === 'function') safeRedraw();
@@ -2601,7 +2716,9 @@ addEasterEgg('up', 'UP', function() {
     ctx.arc(12, h/2 - 35, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Окна
+
+
+// Окна
     function drawWindow(wx, wy) {
       ctx.fillStyle = '#aed6f1';
       ctx.fillRect(wx, wy, 35, 35);
@@ -2957,25 +3074,53 @@ applyWeatherByTime();
 
   // ---------- DVD-ЗАСТАВКА ----------
   let inactivityTimer;
+  const DVD_COLORS = ['#ff0055','#00e5ff','#ffee00','#39ff14','#ff8800','#c400ff','#00ff9d','#ff2e63'];
   function resetInactivity() {
     clearTimeout(inactivityTimer);
     const dvd = document.getElementById('dvd-logo'); if (dvd) dvd.remove();
     inactivityTimer = setTimeout(() => {
       const logo = document.createElement('div'); logo.id = 'dvd-logo'; logo.textContent = 'Купи пиксель';
-      logo.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#ff0; color:#000; padding:10px; font-family:monospace; z-index:600; border-radius:5px;';
+      let colorIdx = 0;
+      logo.style.cssText = `position:fixed; top:0; left:0; background:${DVD_COLORS[0]}; color:#000; padding:10px 16px; font-family:monospace; font-weight:bold; z-index:600; border-radius:5px; white-space:nowrap; box-shadow:0 0 12px rgba(0,0,0,0.5); will-change:transform;`;
       document.body.appendChild(logo);
-      let x = Math.random() * window.innerWidth, y = Math.random() * window.innerHeight, dx = 1.2, dy = 1.2;
+
+      // Координаты x,y — это ВЕРХНИЙ ЛЕВЫЙ угол блока (без transform-смещения),
+      // поэтому отскок от стенок происходит ровно по видимым краям экрана,
+      // как в настоящей DVD-заставке.
+      const w = logo.offsetWidth, h = logo.offsetHeight;
+      let x = Math.random() * Math.max(1, window.innerWidth - w);
+      let y = Math.random() * Math.max(1, window.innerHeight - h);
+      let dx = (Math.random() < 0.5 ? 1 : -1) * 1.6;
+      let dy = (Math.random() < 0.5 ? 1 : -1) * 1.6;
+
+      function nextColor() {
+        colorIdx = (colorIdx + 1) % DVD_COLORS.length;
+        logo.style.background = DVD_COLORS[colorIdx];
+      }
+
       function animate() {
         x += dx; y += dy;
-        if (x <= 0 || x + logo.offsetWidth >= window.innerWidth) { dx *= -1; checkCorner(x, y); }
-        if (y <= 0 || y + logo.offsetHeight >= window.innerHeight) { dy *= -1; checkCorner(x, y); }
-        logo.style.left = x + 'px';
-        logo.style.top = y + 'px';
+        const maxX = window.innerWidth - logo.offsetWidth;
+        const maxY = window.innerHeight - logo.offsetHeight;
+        let bounced = false;
+
+        if (x <= 0) { x = 0; dx = Math.abs(dx); bounced = true; }
+        else if (x >= maxX) { x = maxX; dx = -Math.abs(dx); bounced = true; }
+
+        if (y <= 0) { y = 0; dy = Math.abs(dy); bounced = true; }
+        else if (y >= maxY) { y = maxY; dy = -Math.abs(dy); bounced = true; }
+
+        if (bounced) {
+          nextColor();
+          checkCorner(x, y, maxX, maxY);
+        }
+
+        logo.style.transform = `translate(${x}px, ${y}px)`;
         if (document.getElementById('dvd-logo')) requestAnimationFrame(animate);
       }
-      function checkCorner(x, y) {
-        if ((x <= 1 || x + logo.offsetWidth >= window.innerWidth - 1) && (y <= 1 || y + logo.offsetHeight >= window.innerHeight - 1)) {
-          const msg = document.createElement('div'); msg.textContent = 'Точно в угол!';
+      function checkCorner(x, y, maxX, maxY) {
+        if ((x <= 0 || x >= maxX) && (y <= 0 || y >= maxY)) {
+          const msg = document.createElement('div'); msg.textContent = '🎯 Точно в угол!';
           Object.assign(msg.style, { position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)', color: '#ff0', background: 'rgba(0,0,0,0.8)', padding: '0.3rem 1rem', borderRadius: '5px', zIndex: 700, fontWeight: 'bold', pointerEvents: 'none' });
           document.body.appendChild(msg); setTimeout(() => msg.remove(), 1000);
         }
@@ -2989,6 +3134,8 @@ applyWeatherByTime();
   resetInactivity();
 })();
 </script>
+
+  
 
 
 <!-- ========== ПРОФИЛЬ, МАГАЗИН И СПРАВКА (финальный) ========== -->
@@ -3139,6 +3286,67 @@ applyWeatherByTime();
     font-family: 'Segoe UI', sans-serif;
   }
 
+  /* ===== ЕДИНЫЙ КРАСИВЫЙ СТИЛЬ ИГРОВЫХ ОКОН (2048/Тетрис/Мемори) ===== */
+  .game-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 200000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px;
+    box-sizing: border-box;
+  }
+  .game-panel {
+    background: linear-gradient(180deg, #1e1e35, #14142a);
+    border: 2px solid #4caf50;
+    border-radius: 16px;
+    padding: 18px 20px;
+    display: flex; flex-direction: column; align-items: center;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6), 0 0 20px rgba(76,175,80,0.25);
+    max-width: 95vw;
+    max-height: 95vh;
+    overflow: auto;
+  }
+  .game-panel-title {
+    font-family: 'Segoe UI', sans-serif;
+    font-weight: bold;
+    font-size: 1.15rem;
+    color: #4caf50;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    text-align: center;
+    text-shadow: 0 0 10px rgba(76,175,80,0.4);
+  }
+  .game-btn {
+    padding: 9px 16px;
+    background: #333a52;
+    color: #fff;
+    border: 1px solid #4caf50;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .game-btn:hover { background: #4caf50; }
+  .game-btn:active { transform: scale(0.94); }
+  .game-btn-close {
+    margin-top: 14px;
+    padding: 8px 18px;
+    background: #c0392b;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Segoe UI', sans-serif;
+    font-weight: bold;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .game-btn-close:hover { background: #e74c3c; }
+  .game-btn-close:active { transform: scale(0.94); }
+  .game-controls-row {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px;
+  }
+  @keyframes bitPop { 0% { transform: scale(0.3); opacity: 0.4; } 100% { transform: scale(1); opacity: 1; } }
+
   /* ===== СЕТКИ МАГАЗИНА ===== */
   .avatar-grid, .frame-grid, .color-grid {
     display: grid;
@@ -3161,6 +3369,24 @@ applyWeatherByTime();
     overflow: hidden;
   }
   .shop-item.owned { border-color: #ffd700; }
+  .shop-item { transition: transform 0.12s, border-color 0.12s; }
+  .shop-item:active { transform: scale(0.94); }
+  /* Подсказка с названием предмета при касании на телефоне */
+  .shop-tap-tooltip {
+    position: fixed;
+    transform: translate(-50%, -100%);
+    background: rgba(0,0,0,0.92);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 300000;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .shop-tap-tooltip.visible { opacity: 1; }
   .shop-item .item-icon {
     font-size: 28px;
     line-height: 1;
@@ -3345,6 +3571,7 @@ applyWeatherByTime();
   </div>
 </div>
 
+
 <!-- МОДАЛЬНОЕ ОКНО МАГАЗИНА -->
 <div id="shop-modal" class="modal">
   <div class="modal-content">
@@ -3356,6 +3583,8 @@ applyWeatherByTime();
     <div class="frame-grid" id="frame-list"></div>
     <h3>Цвет ника</h3>
     <div class="color-grid" id="color-list"></div>
+    <h3>Смайлики для чата</h3>
+    <div class="avatar-grid" id="emoji-list"></div>
     <button id="close-shop" style="margin-top:10px;">Закрыть</button>
   </div>
 </div>
@@ -3562,6 +3791,42 @@ applyWeatherByTime();
     { id: 'rainbow', name: 'Радужный', color: 'rainbow', price: 150 }
   ];
 
+ // Смайлики для чата — покупаются в магазине за 100 монет каждый.
+  // После покупки становятся доступны для отправки в чат наравне
+  // с бесплатными (см. панель эмодзи в чате).
+  const EMOJIS_SHOP = [
+    { id: 'wink', emoji: '😉', name: 'Подмигивание', price: 100 },
+    { id: 'laugh_tears', emoji: '🤣', name: 'До слёз', price: 100 },
+    { id: 'cool', emoji: '😎', name: 'Крутой', price: 100 },
+    { id: 'star_eyes', emoji: '🤩', name: 'Звёздные глаза', price: 100 },
+    { id: 'kiss', emoji: '😘', name: 'Поцелуй', price: 100 },
+    { id: 'party_face', emoji: '🥳', name: 'Праздник', price: 100 },
+    { id: 'shy', emoji: '😳', name: 'Смущение', price: 100 },
+    { id: 'wow', emoji: '😲', name: 'Удивление', price: 100 },
+    { id: 'sleepy', emoji: '😴', name: 'Сон', price: 100 },
+    { id: 'sick', emoji: '🤒', name: 'Болезнь', price: 100 },
+    { id: 'crazy', emoji: '🤪', name: 'Безумие', price: 100 },
+    { id: 'smirk', emoji: '😏', name: 'Ухмылка', price: 100 },
+    { id: 'clown', emoji: '🤡', name: 'Клоун', price: 100 },
+    { id: 'devil', emoji: '😈', name: 'Чертёнок', price: 100 },
+    { id: 'angel', emoji: '😇', name: 'Ангел', price: 100 },
+    { id: 'thinking2', emoji: '🧐', name: 'Раздумье', price: 100 },
+    { id: 'muscle', emoji: '💪', name: 'Сила', price: 100 },
+    { id: 'clap', emoji: '👏', name: 'Аплодисменты', price: 100 },
+    { id: 'ok_hand', emoji: '👌', name: 'ОК', price: 100 },
+    { id: 'wave', emoji: '👋', name: 'Привет', price: 100 },
+    { id: 'point_up', emoji: '☝️', name: 'Внимание', price: 100 },
+    { id: 'crown', emoji: '👑', name: 'Корона', price: 100 },
+    { id: 'gem', emoji: '💎', name: 'Бриллиант', price: 100 },
+    { id: 'rocket2', emoji: '🚀', name: 'Ракета', price: 100 },
+    { id: 'money', emoji: '💸', name: 'Деньги', price: 100 },
+    { id: 'trophy', emoji: '🏆', name: 'Трофей', price: 100 },
+    { id: 'rainbow_emoji', emoji: '🌈', name: 'Радуга', price: 100 },
+    { id: 'lightning2', emoji: '⚡', name: 'Молния', price: 100 },
+    { id: 'confetti', emoji: '🎊', name: 'Конфетти', price: 100 },
+    { id: 'flower', emoji: '🌸', name: 'Цветок', price: 100 }
+  ];
+
   const DEFAULT_PROFILE = {
     nickname: 'Player',
     coins: 0,
@@ -3644,6 +3909,47 @@ if (nickColor === 'rainbow') {
     }
   }
 
+  // ===== Тултип с названием предмета для телефонов =====
+  // На ПК название видно по наведению (title=...). На телефоне hover
+  // нет, поэтому первое касание показывает название во всплывающей
+  // подсказке, а не сразу покупает; повторное касание того же предмета
+  // (или клик на ПК) — покупает/экипирует как обычно.
+  const isTouchDevice = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+  let shopTooltipEl = null;
+  let armedShopItem = null;
+  let armedShopTimer = null;
+  function showShopTooltip(el, text) {
+    if (!shopTooltipEl) {
+      shopTooltipEl = document.createElement('div');
+      shopTooltipEl.className = 'shop-tap-tooltip';
+      document.body.appendChild(shopTooltipEl);
+    }
+    shopTooltipEl.textContent = text;
+    const rect = el.getBoundingClientRect();
+    shopTooltipEl.style.left = Math.round(rect.left + rect.width / 2) + 'px';
+    shopTooltipEl.style.top = Math.round(rect.top - 8) + 'px';
+    shopTooltipEl.classList.add('visible');
+    clearTimeout(shopTooltipEl._hideTimer);
+    shopTooltipEl._hideTimer = setTimeout(() => shopTooltipEl.classList.remove('visible'), 1600);
+  }
+  function bindShopItemTap(div, label, onConfirm) {
+    div.title = label; // тултип по наведению для ПК остаётся как был
+    div.addEventListener('click', (e) => {
+      if (isTouchDevice && armedShopItem !== div) {
+        e.preventDefault();
+        e.stopPropagation();
+        showShopTooltip(div, label);
+        armedShopItem = div;
+        clearTimeout(armedShopTimer);
+        armedShopTimer = setTimeout(() => { armedShopItem = null; }, 2500);
+        return;
+      }
+      armedShopItem = null;
+      clearTimeout(armedShopTimer);
+      onConfirm();
+    });
+  }
+
   function populateShop() {
     const ag = document.getElementById('avatar-list');
     ag.innerHTML = '';
@@ -3651,8 +3957,7 @@ if (nickColor === 'rainbow') {
       const div = document.createElement('div');
       div.className = 'shop-item avatar-item' + (profile.inventory.includes(a.id) ? ' owned' : '');
       div.innerHTML = `<div class="item-icon">${a.emoji}</div><div class="item-price">💰${a.price}</div>`;
-      div.title = a.name + ' (' + a.price + '💰)';
-      div.onclick = () => buy('avatar', a);
+      bindShopItemTap(div, a.name + ' (' + a.price + '💰)', () => buy('avatar', a));
       ag.appendChild(div);
     });
 
@@ -3663,8 +3968,7 @@ if (nickColor === 'rainbow') {
       div.className = 'shop-item frame-item' + (profile.inventory.includes(f.id) ? ' owned' : '');
       if (f.id !== 'none') div.classList.add('frame-' + f.id);
       div.innerHTML = `<div class="frame-preview">🙂</div><div class="item-price">💰${f.price}</div>`;
-      div.title = f.name + ' (' + f.price + '💰)';
-      div.onclick = () => buy('frame', f);
+      bindShopItemTap(div, f.name + ' (' + f.price + '💰)', () => buy('frame', f));
       fg.appendChild(div);
     });
 
@@ -3676,20 +3980,34 @@ if (nickColor === 'rainbow') {
       div.className = 'shop-item color-item' + (owned ? ' owned' : '');
       let swatchStyle = c.color === 'rainbow' ? 'background: linear-gradient(90deg, red, orange, yellow, green, blue, violet);' : 'background: ' + c.color + ';';
       div.innerHTML = `<div class="color-swatch" style="${swatchStyle}"></div><div class="item-price">💰${c.price}</div>`;
-      div.title = c.name + ' (' + c.price + '💰)';
-      div.onclick = () => buy('nickColor', c);
+      bindShopItemTap(div, c.name + ' (' + c.price + '💰)', () => buy('nickColor', c));
       cg.appendChild(div);
     });
+
+    const eg = document.getElementById('emoji-list');
+    if (eg) {
+      eg.innerHTML = '';
+      EMOJIS_SHOP.forEach(em => {
+        const div = document.createElement('div');
+        const owned = profile.inventory.includes('emoji_' + em.id);
+        div.className = 'shop-item emoji-item' + (owned ? ' owned' : '');
+        div.innerHTML = `<div class="item-icon">${em.emoji}</div><div class="item-price">${owned ? '✔ Куплено' : '💰' + em.price}</div>`;
+        bindShopItemTap(div, em.name + ' (' + em.price + '💰)', () => buy('emoji', em));
+        eg.appendChild(div);
+      });
+    }
   }
 
   function buy(type, item) {
     let inventoryKey = item.id;
     if (type === 'nickColor') inventoryKey = 'color_' + item.id;
+    if (type === 'emoji') inventoryKey = 'emoji_' + item.id;
 
     if (profile.inventory.includes(inventoryKey)) {
       if (type === 'avatar') profile.equipped.avatar = item.id;
       else if (type === 'frame') profile.equipped.frame = item.id;
       else if (type === 'nickColor') profile.equipped.nickColor = item.color;
+      else if (type === 'emoji') { alert('Этот смайлик уже куплен — он доступен в чате.'); return; }
       save(); updateUI();
       alert('Экипировано: ' + item.name);
       return;
@@ -3699,9 +4017,14 @@ if (nickColor === 'rainbow') {
     profile.inventory.push(inventoryKey);
     if (type === 'avatar') profile.equipped.avatar = item.id;
     else if (type === 'frame') profile.equipped.frame = item.id;
-    else if (type === 'nickColor') profile.equipped.nickColor = item.id;
+    else if (type === 'nickColor') profile.equipped.nickColor = item.color;
     save(); updateUI(); populateShop();
-    alert('Куплено и экипировано: ' + item.name);
+    if (type === 'emoji') {
+      alert('Куплено: ' + item.name + '. Теперь доступен в чате 😊');
+      if (typeof window.pbRefreshEmojiPanel === 'function') window.pbRefreshEmojiPanel();
+    } else {
+      alert('Куплено и экипировано: ' + item.name);
+    }
   }
 
   document.getElementById('change-nickname-btn').onclick = () => {
@@ -3750,6 +4073,7 @@ if (nickColor === 'rainbow') {
   updateUI();
   window.AVATARS = AVATARS;
 window.FRAMES = FRAMES;
+window.SHOP_EMOJIS = EMOJIS_SHOP;
   window.PixelProfile = { addCoins: window.addCoins, updateRecord: window.updateRecord };
 })();
 </script>
@@ -3881,6 +4205,9 @@ window.FRAMES = FRAMES;
     grid-template-columns: repeat(5, 1fr);
     gap: 5px;
     z-index: 100002;
+    max-height: 220px;
+    max-width: 90vw;
+    overflow-y: auto;
   }
   #emoji-panel button {
     background: none;
@@ -3969,7 +4296,6 @@ window.FRAMES = FRAMES;
   }
   
 
-  
   // ===== ЭЛЕМЕНТЫ =====
   const chatBtn = document.getElementById('fire-chat-btn');
   const chatModal = document.getElementById('fire-chat-modal');
@@ -4029,8 +4355,22 @@ window.FRAMES = FRAMES;
   });
 
   // ===== ПАНЕЛЬ ЭМОДЗИ =====
-  const emojis = ['😀','😂','👍','🔥','💀','🎉','😍','🤔','😢','😡','❤️','🎁'];
-  emojis.forEach(emoji => {
+  // Бесплатные смайлики + купленные в магазине (profile.inventory: emoji_<id>)
+  const freeEmojis = ['😀','😂','👍','🔥','💀','🎉','😍','🤔','😢','😡','❤️','🎁'];
+  function buildEmojiPanel() {
+    emojiPanel.innerHTML = '';
+    freeEmojis.forEach(emoji => addEmojiButton(emoji));
+    const currentProfile = getProfile();
+    const owned = (currentProfile.inventory || []).filter(id => id.startsWith('emoji_'));
+    if (owned.length && Array.isArray(window.SHOP_EMOJIS)) {
+      owned.forEach(invId => {
+        const shopId = invId.replace('emoji_', '');
+        const item = window.SHOP_EMOJIS.find(e => e.id === shopId);
+        if (item) addEmojiButton(item.emoji);
+      });
+    }
+  }
+  function addEmojiButton(emoji) {
     const btn = document.createElement('button');
     btn.textContent = emoji;
     btn.addEventListener('click', () => {
@@ -4039,8 +4379,11 @@ window.FRAMES = FRAMES;
       emojiPanel.style.display = 'none';
     });
     emojiPanel.appendChild(btn);
-  });
+  }
+  buildEmojiPanel();
+  window.pbRefreshEmojiPanel = buildEmojiPanel;
   emojiBtn.addEventListener('click', () => {
+    buildEmojiPanel(); // на случай покупки новых смайликов в магазине
     emojiPanel.style.display = emojiPanel.style.display === 'grid' ? 'none' : 'grid';
   });
 
@@ -4298,4 +4641,5 @@ function displayMessage(msg) {
   
 </body>
 </html>
+  
   
