@@ -171,6 +171,61 @@ canvas {
   </footer>
 
   <script>
+  // ========== ГЛОБАЛЬНЫЙ ЗВУКОВОЙ ДВИЖОК ==========
+  // Единый Web Audio движок для звуков интерфейса (кнопки, магазин,
+  // профиль, игры). Не требует аудио-файлов — звуки генерируются на лету.
+  (function() {
+    let actx = null;
+    function ctx() {
+      if (!actx) {
+        try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+        catch(e) { return null; }
+      }
+      if (actx.state === 'suspended') actx.resume();
+      return actx;
+    }
+    function tone(freq, dur, opts) {
+      opts = opts || {};
+      const c = ctx();
+      if (!c) return;
+      const t0 = c.currentTime + (opts.delay || 0);
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = opts.type || 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      if (opts.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(20, opts.slideTo), t0 + dur);
+      const vol = opts.volume != null ? opts.volume : 0.08;
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(gain); gain.connect(c.destination);
+      osc.start(t0); osc.stop(t0 + dur + 0.02);
+    }
+    const S = {
+      click: () => tone(720, 0.06, { type: 'triangle', volume: 0.05 }),
+      toggle: () => tone(500, 0.05, { type: 'square', volume: 0.04 }),
+      buy: () => { tone(660, 0.09, { type: 'triangle', volume: 0.07 }); tone(990, 0.12, { type: 'triangle', volume: 0.07, delay: 0.08 }); },
+      error: () => tone(160, 0.18, { type: 'sawtooth', volume: 0.06, slideTo: 90 }),
+      coin: () => { tone(1200, 0.05, { type: 'square', volume: 0.05 }); tone(1600, 0.08, { type: 'square', volume: 0.05, delay: 0.05 }); },
+      hit: () => tone(950, 0.05, { type: 'square', volume: 0.06, slideTo: 500 }),
+      merge: () => tone(500, 0.09, { type: 'triangle', volume: 0.06, slideTo: 800 }),
+      match: () => { tone(700, 0.08, { type: 'sine', volume: 0.07 }); tone(1050, 0.1, { type: 'sine', volume: 0.07, delay: 0.07 }); },
+      mismatch: () => tone(220, 0.12, { type: 'sawtooth', volume: 0.05, slideTo: 140 }),
+      clear: () => { [0,1,2].forEach(i => tone(600 + i * 220, 0.09, { type: 'triangle', volume: 0.06, delay: i * 0.05 })); },
+      win: () => { [660, 880, 1100].forEach((f, i) => tone(f, 0.14, { type: 'triangle', volume: 0.07, delay: i * 0.1 })); },
+      gameover: () => { tone(420, 0.16, { type: 'sawtooth', volume: 0.06, slideTo: 200 }); tone(280, 0.22, { type: 'sawtooth', volume: 0.06, slideTo: 120, delay: 0.14 }); },
+      open: () => tone(500, 0.07, { type: 'sine', volume: 0.05, slideTo: 750 }),
+      close: () => tone(500, 0.07, { type: 'sine', volume: 0.05, slideTo: 320 })
+    };
+    window.pbSound = S;
+
+    // Делегированный клик — звук на все кнопки и элементы магазина сайта.
+    document.addEventListener('click', function(e) {
+      const el = e.target.closest('button, .shop-item, .game-btn, .game-btn-close, #emoji-btn');
+      if (el) S.click();
+    }, true);
+  })();
+
     // ========== НАСТРОЙКИ ==========
     const PIXEL_PRICE = 50; // руб за пиксель
     const MIN_BLOCK = 10;    // мин блок 10x10
@@ -1147,6 +1202,7 @@ easterInput.addEventListener('keydown', function(e) {
       const coins = Math.floor(score / 5);
       if (coins > 0) window.addCoins(coins);
       if (window.updateRecord('bit', score)) window.addCoins(10);
+      if (window.pbSound) window.pbSound.gameover();
       showMessage(`Игра окончена! Попаданий: ${score}. Рекорд: ${localStorage.getItem('bitRecord')}`, '#ff0', 3000);
       window.pbUnlockCodeInput();
       return;
@@ -1159,13 +1215,14 @@ easterInput.addEventListener('keydown', function(e) {
   spawnInterval = setInterval(() => {
     const target = document.createElement('div');
     target.className = 'bit-target';
-    target.style.cssText = 'position:absolute; width:34px; height:34px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #ff8a80, #e74c3c 70%); box-shadow:0 0 12px rgba(231,76,60,0.8), inset 0 0 6px rgba(255,255,255,0.4); z-index:999; cursor:pointer; animation: bitPop 0.15s ease-out;';
+    target.style.cssText = 'position:absolute; width:34px; height:34px; border-radius:6px; background:radial-gradient(circle at 35% 30%, #ff8a80, #e74c3c 70%); box-shadow:0 0 12px rgba(231,76,60,0.8), inset 0 0 6px rgba(255,255,255,0.4); z-index:999; cursor:pointer; animation: bitPop 0.15s ease-out;';
     target.style.left = Math.random() * (container.offsetWidth - 34) + 'px';
     target.style.top = Math.random() * (container.offsetHeight - 34) + 'px';
     container.appendChild(target);
     target.addEventListener('click', (e) => {
       e.stopPropagation();
       score++;
+      if (window.pbSound) window.pbSound.hit();
       target.remove();
     });
     setTimeout(() => target.remove(), 2000);
@@ -1302,8 +1359,14 @@ gameContainer.addEventListener('touchmove', function(e) {
   scoreDiv.textContent = 'Счёт: 0';
   gameContainer.appendChild(scoreDiv);
 
+  // Размер клетки подбирается под экран, чтобы поле не выходило за пределы
+  const cell2048 = Math.max(46, Math.min(
+    80,
+    Math.floor((Math.min(window.innerWidth, 420) - 70) / 4),
+    Math.floor((window.innerHeight - 260) / 4)
+  ));
   const grid = document.createElement('div');
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(4,80px);grid-gap:5px;';
+  grid.style.cssText = `display:grid;grid-template-columns:repeat(4,${cell2048}px);grid-gap:5px;`;
   gameContainer.appendChild(grid);
 
   const closeBtn = document.createElement('button');
@@ -1327,7 +1390,7 @@ gameContainer.addEventListener('touchmove', function(e) {
     for (let r = 0; r < 4; r++) {
       for (let c = 0; c < 4; c++) {
         const cell = document.createElement('div');
-        cell.style.cssText = 'width:80px;height:80px;background:#333;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:bold;color:#fff;border-radius:5px;';
+        cell.style.cssText = `width:${cell2048}px;height:${cell2048}px;background:#333;display:flex;align-items:center;justify-content:center;font-size:${Math.round(cell2048*0.35)}px;font-weight:bold;color:#fff;border-radius:5px;`;
         if (board[r][c] > 0) {
           cell.textContent = board[r][c];
           const hue = Math.log2(board[r][c]) * 15 % 360;
@@ -1345,6 +1408,7 @@ gameContainer.addEventListener('touchmove', function(e) {
       if (arr[i] === arr[i + 1]) {
         arr[i] *= 2;
         gameScore += arr[i];
+        if (window.pbSound) window.pbSound.merge();
         arr.splice(i + 1, 1);
         arr.push(0);
       }
@@ -1397,7 +1461,10 @@ gameContainer.addEventListener('touchmove', function(e) {
     return true;
   }
 
-  function end2048() {
+  let scored2048 = false;
+  function finalizeScore2048() {
+    if (scored2048) return { maxTile: Math.max(...board.flat()), coinsEarned: 0 };
+    scored2048 = true;
     const maxTile = Math.max(...board.flat());
     let coinsEarned = 0;
     if (maxTile >= 1024) coinsEarned += Math.floor(maxTile / 1024);
@@ -1406,6 +1473,12 @@ gameContainer.addEventListener('touchmove', function(e) {
       const isNewRecord = window.updateRecord('2048', maxTile);
       if (isNewRecord) window.addCoins(10);
     }
+    if (window.pbSound) window.pbSound.gameover();
+    return { maxTile, coinsEarned };
+  }
+
+  function end2048() {
+    const { maxTile, coinsEarned } = finalizeScore2048();
     if (typeof showMessage === 'function') showMessage(`Игра окончена! Макс. плитка: ${maxTile}. Монет: ${coinsEarned}`, '#ff0');
     window.removeEventListener('keydown', handleKey);
     window.pbUnlockCodeInput();
@@ -1439,8 +1512,12 @@ document.body.style.overflow = '';
   });
 
   closeBtn.addEventListener('click', () => {
-    if (!gameOver) end2048();
-    else overlay.remove();
+    gameOver = true;
+    finalizeScore2048();
+    window.removeEventListener('keydown', handleKey);
+    window.pbUnlockCodeInput();
+    overlay.remove();
+    if (typeof safeRedraw === 'function') safeRedraw();
   });
 
   spawnTile(); spawnTile();
@@ -1491,9 +1568,15 @@ addEasterEgg('tetris', 'TETRIS', function() {
   topPanel.appendChild(previewDiv);
   const pctx = previewCanvas.getContext('2d');
 
-  // Игровое поле (уменьшено до 15 рядов)
+  // Игровое поле — размер клетки подбирается и по ширине, и по высоте
+  // экрана, чтобы поле целиком помещалось на экране вместе с кнопками.
   const COLS = 10, ROWS = 15;
-  const cellSize = Math.min(30, Math.floor((window.innerWidth - 40) / COLS));
+  const reservedHeight = 230; // заголовок + панель очков + кнопки + отступы
+  const cellSize = Math.max(14, Math.min(
+    30,
+    Math.floor((Math.min(window.innerWidth, 420) - 40) / COLS),
+    Math.floor((window.innerHeight - reservedHeight) / ROWS)
+  ));
   const canvas = document.createElement('canvas');
   canvas.width = cellSize * COLS;
   canvas.height = cellSize * ROWS;
@@ -1592,6 +1675,7 @@ addEasterEgg('tetris', 'TETRIS', function() {
       linesCleared += cleared;
       level = Math.floor(linesCleared / 10) + 1;
       score += cleared * 10 * level;
+      if (window.pbSound) window.pbSound.clear();
       clearInterval(dropInterval);
       dropInterval = setInterval(() => { if (!gameOver) moveDown(); }, Math.max(100, 500 - (level-1)*40));
     }
@@ -1619,12 +1703,20 @@ addEasterEgg('tetris', 'TETRIS', function() {
     document.getElementById('tetris-score').textContent = score;
   }
 
-  function endGame() {
+  let scoredTetris = false;
+  function finalizeTetris() {
+    if (scoredTetris) return;
+    scoredTetris = true;
     gameOver = true; clearInterval(dropInterval);
     const coins = Math.floor(linesCleared / 5);
     if (coins > 0 && window.addCoins) window.addCoins(coins);
     if (window.updateRecord && window.updateRecord('tetris', linesCleared)) window.addCoins(10);
-    if (typeof showMessage === 'function') showMessage(`Тетрис окончен! Линий: ${linesCleared}. Монет: ${coins}`, '#0ff');
+    if (window.pbSound) window.pbSound.gameover();
+  }
+
+  function endGame() {
+    finalizeTetris();
+    if (typeof showMessage === 'function') showMessage(`Тетрис окончен! Линий: ${linesCleared}. Монет: ${Math.floor(linesCleared / 5)}`, '#0ff');
     window.removeEventListener('keydown', handleKey);
     window.pbUnlockCodeInput();
     setTimeout(() => { overlay.remove(); if (typeof safeRedraw === 'function') safeRedraw(); }, 2000);
@@ -1639,7 +1731,13 @@ addEasterEgg('tetris', 'TETRIS', function() {
 
   btnLeft.onclick = moveLeft; btnRight.onclick = moveRight; btnDown.onclick = moveDown;
   btnRotate.onclick = rotate; btnHardDrop.onclick = hardDrop;
-  btnClose.onclick = () => { if (!gameOver) endGame(); else overlay.remove(); };
+  btnClose.onclick = () => {
+    finalizeTetris();
+    window.removeEventListener('keydown', handleKey);
+    window.pbUnlockCodeInput();
+    overlay.remove();
+    if (typeof safeRedraw === 'function') safeRedraw();
+  };
 
   nextPreview(); spawnPiece(); draw();
   dropInterval = setInterval(() => { if (!gameOver) moveDown(); }, 500);
@@ -1722,17 +1820,24 @@ addEasterEgg('memory', 'MEMORY', function() {
     grid.innerHTML = '';
     const cols = Math.ceil(Math.sqrt(totalCards));
     const rows = Math.ceil(totalCards / cols);
-    grid.style.gridTemplateColumns = `repeat(${cols}, 60px)`;
+    // Размер карточки подбирается под ширину и высоту экрана, чтобы
+    // поле любого уровня целиком помещалось на экране.
+    const cardSize = Math.max(34, Math.min(
+      60,
+      Math.floor((Math.min(window.innerWidth, 420) - 60) / cols),
+      Math.floor((window.innerHeight - 260) / rows)
+    ));
+    grid.style.gridTemplateColumns = `repeat(${cols}, ${cardSize}px)`;
 
     deck.forEach((card, index) => {
       const cardEl = document.createElement('div');
       cardEl.className = 'memory-card';
       cardEl.style.cssText = `
-        width:60px; height:60px;
+        width:${cardSize}px; height:${cardSize}px;
         background:#333;
         border-radius:10px;
         display:flex; align-items:center; justify-content:center;
-        font-size:30px; cursor:pointer;
+        font-size:${Math.round(cardSize*0.5)}px; cursor:pointer;
         transform: scale(1);
         transition: transform 0.2s;
         user-select: none;
@@ -1760,6 +1865,7 @@ addEasterEgg('memory', 'MEMORY', function() {
     cardEl.textContent = card.emoji;
     cardEl.style.background = '#555';
     card.opened = true;
+    if (window.pbSound) window.pbSound.click();
     openedCards.push({ cardEl, card });
 
     if (openedCards.length === 2) {
@@ -1768,6 +1874,7 @@ addEasterEgg('memory', 'MEMORY', function() {
       if (first.card.emoji === second.card.emoji) {
         // Угадана пара
         matchedPairs++;
+        if (window.pbSound) window.pbSound.match();
         openedCards = [];
         canClick = true;
         if (matchedPairs === pairs) {
@@ -1775,6 +1882,7 @@ addEasterEgg('memory', 'MEMORY', function() {
         }
       } else {
         // Не угадана – переворачиваем обратно через 600 мс
+        if (window.pbSound) window.pbSound.mismatch();
         setTimeout(() => {
           first.cardEl.textContent = '❓';
           first.cardEl.style.background = '#333';
@@ -1791,6 +1899,7 @@ addEasterEgg('memory', 'MEMORY', function() {
 
   function levelComplete() {
     levelsCleared++;
+    if (window.pbSound) window.pbSound.win();
     if (window.addCoins) window.addCoins(1); // +1 монеты за уровень
 
     // Усложнение: каждые 2 уровня увеличиваем количество пар и уменьшаем время
@@ -1824,7 +1933,10 @@ addEasterEgg('memory', 'MEMORY', function() {
     }, 1000);
   }
 
-  function endGame() {
+  let scoredMemory = false;
+  function finalizeMemory() {
+    if (scoredMemory) return;
+    scoredMemory = true;
     gameOver = true;
     clearInterval(timerInterval);
     canClick = false;
@@ -1832,6 +1944,11 @@ addEasterEgg('memory', 'MEMORY', function() {
     if (window.updateRecord && window.updateRecord('memory', levelsCleared)) {
       if (window.addCoins) window.addCoins(10);
     }
+    if (window.pbSound) window.pbSound.gameover();
+  }
+
+  function endGame() {
+    finalizeMemory();
     if (typeof showMessage === 'function') {
       showMessage(`Мемори окончено! Пройдено уровней: ${levelsCleared}. Монет: ${levelsCleared * 2}`, '#ff0');
     }
@@ -1842,10 +1959,12 @@ addEasterEgg('memory', 'MEMORY', function() {
     }, 2000);
   }
 
-  // Закрытие по кнопке
+  // Закрытие по кнопке — закрывается сразу, без задержки
   closeBtn.addEventListener('click', () => {
-    if (!gameOver) endGame();
-    else overlay.remove();
+    finalizeMemory();
+    window.pbUnlockCodeInput();
+    overlay.remove();
+    if (typeof safeRedraw === 'function') safeRedraw();
   });
 
   // Старт
@@ -2533,7 +2652,9 @@ addEasterEgg('scorpion', 'SCORPION', function() {
     ctx.lineTo(distance, 0);
     ctx.stroke();
 
-    // Звенья
+    
+   
+// Звенья
     ctx.strokeStyle = '#888';
     ctx.lineWidth = 6;
     for (let i = 0; i < distance; i += 25) {
@@ -3121,7 +3242,7 @@ applyWeatherByTime();
       function checkCorner(x, y, maxX, maxY) {
         if ((x <= 0 || x >= maxX) && (y <= 0 || y >= maxY)) {
           const msg = document.createElement('div'); msg.textContent = '🎯 Точно в угол!';
-          Object.assign(msg.style, { position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)', color: '#ff0', background: 'rgba(0,0,0,0.8)', padding: '0.3rem 1rem', borderRadius: '5px', zIndex: 700, fontWeight: 'bold', pointerEvents: 'none' });
+       Object.assign(msg.style, { position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)', color: '#ff0', background: 'rgba(0,0,0,0.8)', padding: '0.3rem 1rem', borderRadius: '5px', zIndex: 700, fontWeight: 'bold', pointerEvents: 'none' });
           document.body.appendChild(msg); setTimeout(() => msg.remove(), 1000);
         }
       }
@@ -3258,8 +3379,7 @@ applyWeatherByTime();
     #help-btn { margin-left: -2px; }
     #fire-chat-btn { margin-left: 4px; }
   }
-
-  /* ===== МОДАЛЬНЫЕ ОКНА ===== */
+/* ===== МОДАЛЬНЫЕ ОКНА ===== */
   .modal {
     display: none;
     position: fixed;
@@ -3285,8 +3405,7 @@ applyWeatherByTime();
     color: white;
     font-family: 'Segoe UI', sans-serif;
   }
-
-  /* ===== ЕДИНЫЙ КРАСИВЫЙ СТИЛЬ ИГРОВЫХ ОКОН (2048/Тетрис/Мемори) ===== */
+/* ===== ЕДИНЫЙ КРАСИВЫЙ СТИЛЬ ИГРОВЫХ ОКОН (2048/Тетрис/Мемори) ===== */
   .game-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.85);
@@ -3329,7 +3448,8 @@ applyWeatherByTime();
   .game-btn:hover { background: #4caf50; }
   .game-btn:active { transform: scale(0.94); }
   .game-btn-close {
-    margin-top: 14px;
+    margin-top: 10px;
+    flex-shrink: 0;
     padding: 8px 18px;
     background: #c0392b;
     color: #fff;
@@ -3422,6 +3542,235 @@ applyWeatherByTime();
     border-radius: 0 0 8px 8px;
     margin-top: auto;
     line-height: 1.2;
+  }
+
+  /* ===== АНИМИРОВАННЫЕ АВАТАРЫ И СМАЙЛИКИ ===== */
+  @keyframes anim-spin-kf { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .anim-spin { display: inline-block; animation: anim-spin-kf 3s linear infinite; }
+
+  @keyframes anim-laser-kf {
+    0%, 100% { filter: drop-shadow(0 0 2px #ff0000); }
+    50% { filter: drop-shadow(0 0 10px #ff1111) drop-shadow(0 0 16px #ff0000); }
+  }
+  .anim-laser { display: inline-block; animation: anim-laser-kf 1s ease-in-out infinite; }
+
+  @keyframes anim-flame-kf {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px orange); }
+    50% { transform: scale(1.15); filter: drop-shadow(0 0 12px #ff5500); }
+  }
+  .anim-flame { display: inline-block; animation: anim-flame-kf 0.8s ease-in-out infinite; }
+
+  @keyframes anim-shiver-kf {
+    0%, 100% { transform: translate(0,0) rotate(0); }
+    20% { transform: translate(-2px,1px) rotate(-3deg); }
+    40% { transform: translate(2px,-1px) rotate(3deg); }
+    60% { transform: translate(-1px,1px) rotate(-2deg); }
+    80% { transform: translate(1px,-1px) rotate(2deg); }
+  }
+  .anim-shiver { display: inline-block; animation: anim-shiver-kf 0.35s linear infinite; }
+
+  @keyframes anim-vanish-kf { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
+  .anim-vanish { display: inline-block; animation: anim-vanish-kf 1.6s ease-in-out infinite; }
+
+  @keyframes anim-pulse-red-kf {
+    0%, 100% { filter: drop-shadow(0 0 3px #ff0033); transform: scale(1); }
+    50% { filter: drop-shadow(0 0 14px #ff0033); transform: scale(1.12); }
+  }
+  .anim-pulse-red { display: inline-block; animation: anim-pulse-red-kf 1.1s ease-in-out infinite; }
+
+  @keyframes anim-rainbow-kf { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+  .anim-rainbow { display: inline-block; animation: anim-rainbow-kf 2.5s linear infinite; }
+
+  @keyframes anim-wobble-kf {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-12deg); }
+    75% { transform: rotate(12deg); }
+  }
+  .anim-wobble { display: inline-block; animation: anim-wobble-kf 1.4s ease-in-out infinite; }
+
+  @keyframes anim-float-kf { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .anim-float { display: inline-block; animation: anim-float-kf 2s ease-in-out infinite; }
+
+  @keyframes anim-shake-kf {
+    0%, 100% { transform: translateX(0); }
+    10% { transform: translateX(-4px); } 20% { transform: translateX(4px); }
+    30% { transform: translateX(-4px); } 40% { transform: translateX(4px); }
+    50% { transform: translateX(-3px); } 60% { transform: translateX(3px); }
+    70% { transform: translateX(-2px); } 80% { transform: translateX(2px); }
+    90% { transform: translateX(-1px); }
+  }
+  .anim-shake { display: inline-block; animation: anim-shake-kf 0.9s ease-in-out infinite; }
+
+  @keyframes anim-glitch-kf {
+    0%, 100% { text-shadow: 2px 0 #0ff, -2px 0 #f0f; transform: translate(0,0); }
+    20% { text-shadow: -2px 0 #0ff, 2px 0 #f0f; transform: translate(1px,-1px); }
+    40% { text-shadow: 2px 0 #0ff, -2px 0 #f0f; transform: translate(-1px,1px); }
+    60% { text-shadow: -3px 0 #0ff, 3px 0 #f0f; transform: translate(1px,1px); }
+    80% { text-shadow: 3px 0 #0ff, -3px 0 #f0f; transform: translate(-1px,-1px); }
+  }
+  .anim-glitch { display: inline-block; animation: anim-glitch-kf 0.6s steps(2) infinite; }
+
+  @keyframes anim-ember-kf {
+    0%, 100% { filter: drop-shadow(0 0 5px #ff8800) brightness(1); transform: scale(1) rotate(0); }
+    50% { filter: drop-shadow(0 0 14px #ff3300) brightness(1.3); transform: scale(1.08) rotate(3deg); }
+  }
+  .anim-ember { display: inline-block; animation: anim-ember-kf 1s ease-in-out infinite; }
+
+  @keyframes anim-orbit-kf {
+    from { transform: rotate(0deg) translateX(16px) rotate(0deg); }
+    to { transform: rotate(360deg) translateX(16px) rotate(-360deg); }
+  }
+  .anim-orbit { display: inline-block; position: relative; }
+  .anim-orbit::after {
+    content: ''; position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: #ffd700; box-shadow: 0 0 6px #ffd700; top: 50%; left: 50%; margin: -3px;
+    animation: anim-orbit-kf 1.6s linear infinite; pointer-events: none;
+  }
+
+  @keyframes anim-bounce-kf {
+    0%, 100% { transform: translateY(0) scaleY(1); }
+    30% { transform: translateY(-10px) scaleY(1.05); }
+    50% { transform: translateY(0) scaleY(0.85); }
+    70% { transform: translateY(-4px) scaleY(1.02); }
+  }
+  .anim-bounce { display: inline-block; animation: anim-bounce-kf 1s ease-in-out infinite; }
+eyframes anim-drift-kf {
+    0%, 100% { transform: translateY(0) translateX(0); opacity: 1; }
+    50% { transform: translateY(-6px) translateX(4px); opacity: 0.7; }
+  }
+  .anim-drift { display: inline-block; animation: anim-drift-kf 2.4s ease-in-out infinite; }
+
+  @keyframes anim-pulse-green-kf {
+    0%, 100% { filter: drop-shadow(0 0 3px #33ff66); transform: scale(1); }
+    50% { filter: drop-shadow(0 0 14px #33ff66); transform: scale(1.1); }
+  }
+  .anim-pulse-green { display: inline-block; animation: anim-pulse-green-kf 1.2s ease-in-out infinite; }
+
+  @keyframes anim-sway-kf { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+  .anim-sway { display: inline-block; animation: anim-sway-kf 2s ease-in-out infinite; transform-origin: bottom center; }
+
+  @keyframes anim-lightning-kf {
+    0%, 89%, 100% { filter: brightness(1); }
+    90% { filter: brightness(2.2) drop-shadow(0 0 12px #fff600); }
+    92% { filter: brightness(1); }
+    94% { filter: brightness(2.5) drop-shadow(0 0 16px #fff600); }
+    96% { filter: brightness(1); }
+  }
+  .anim-lightning { display: inline-block; animation: anim-lightning-kf 2.2s linear infinite; }
+
+  @keyframes anim-flicker-kf {
+    0%, 19%, 21%, 100% { opacity: 1; }
+    20% { opacity: 0.2; } 60% { opacity: 1; } 62% { opacity: 0.3; } 64% { opacity: 1; }
+  }
+  .anim-flicker { display: inline-block; animation: anim-flicker-kf 2.4s infinite; }
+
+  @keyframes anim-heartbeat-kf {
+    0%, 100% { transform: scale(1); }
+    15% { transform: scale(1.25); } 30% { transform: scale(1); }
+    45% { transform: scale(1.2); } 60% { transform: scale(1); }
+  }
+  .anim-heartbeat { display: inline-block; animation: anim-heartbeat-kf 1.2s ease-in-out infinite; }
+
+  @keyframes anim-walk-kf {
+    0%   { transform: translateX(-9px) scaleX(1)  translateY(0); }
+    12%  { transform: translateX(-6px) scaleX(1)  translateY(-2px); }
+    25%  { transform: translateX(-3px) scaleX(1)  translateY(0); }
+    37%  { transform: translateX(0px)  scaleX(1)  translateY(-2px); }
+    50%  { transform: translateX(3px)  scaleX(1)  translateY(0); }
+    62%  { transform: translateX(6px)  scaleX(1)  translateY(-2px); }
+    74%  { transform: translateX(9px)  scaleX(1)  translateY(0); }
+    75%  { transform: translateX(9px)  scaleX(-1) translateY(0); }
+    87%  { transform: translateX(3px)  scaleX(-1) translateY(-2px); }
+    100% { transform: translateX(-9px) scaleX(-1) translateY(0); }
+  }
+  .anim-walk { display: inline-block; animation: anim-walk-kf 3.2s steps(1) infinite; }
+
+  @keyframes anim-dance-kf {
+    0%   { transform: translateY(0) rotate(-10deg); filter: hue-rotate(0deg); }
+    20%  { transform: translateY(-6px) rotate(10deg); filter: hue-rotate(72deg); }
+    40%  { transform: translateY(0) rotate(-8deg); filter: hue-rotate(144deg); }
+    60%  { transform: translateY(-6px) rotate(8deg); filter: hue-rotate(216deg); }
+    80%  { transform: translateY(0) rotate(-10deg); filter: hue-rotate(288deg); }
+    100% { transform: translateY(-6px) rotate(10deg); filter: hue-rotate(360deg); }
+  }
+  .anim-dance { display: inline-block; animation: anim-dance-kf 1.2s ease-in-out infinite; }
+
+  @keyframes anim-hohoho-move-kf {
+    0%, 100% { transform: translateX(-6px) rotate(-4deg); }
+    50% { transform: translateX(6px) rotate(4deg); }
+  }
+  @keyframes anim-hohoho-text-kf {
+    0%, 55% { opacity: 0; transform: translateX(-50%) scale(0.6); }
+    70%, 88% { opacity: 1; transform: translateX(-50%) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) scale(0.6); }
+  }
+  .anim-hohoho { display: inline-block; position: relative; animation: anim-hohoho-move-kf 1.6s ease-in-out infinite; overflow: visible; }
+  .anim-hohoho::after {
+    content: 'ХО-ХО-ХО';
+    position: absolute;
+    top: -0.85em; left: 50%;
+    transform: translateX(-50%) scale(0.6);
+    font-size: 0.32em;
+    font-weight: bold;
+    color: #ff3b3b;
+    white-space: nowrap;
+    opacity: 0;
+    animation: anim-hohoho-text-kf 3.2s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  @keyframes anim-swim-move-kf {
+    0%   { transform: translateX(-10px) translateY(0) rotate(-6deg); }
+    25%  { transform: translateX(-5px) translateY(-4px) rotate(0deg); }
+    50%  { transform: translateX(0) translateY(0) rotate(6deg); }
+    75%  { transform: translateX(5px) translateY(-4px) rotate(0deg); }
+    100% { transform: translateX(10px) translateY(0) rotate(-6deg); }
+  }
+  @keyframes anim-swim-splash-kf {
+    0%, 40% { opacity: 0; transform: translateY(0) scale(0.5); }
+    50% { opacity: 1; transform: translateY(-0.35em) scale(1); }
+    65% { opacity: 0; transform: translateY(-0.6em) scale(0.8); }
+    100% { opacity: 0; }
+  }
+  .anim-swim { display: inline-block; position: relative; animation: anim-swim-move-kf 2.4s ease-in-out infinite alternate; overflow: visible; }
+  .anim-swim::after {
+    content: '💦';
+    position: absolute;
+    font-size: 0.4em;
+    top: -0.2em; right: -0.3em;
+    opacity: 0;
+    animation: anim-swim-splash-kf 2.4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* Тыква-джек — светятся только глаза (два маленьких огонька), а не весь эмодзи */
+  @keyframes anim-pumpkinglow-kf {
+    0%, 100% { opacity: 0.55; box-shadow: 0 0 0.05em 0.02em #ff2200; }
+    50% { opacity: 1; box-shadow: 0 0 0.16em 0.08em #ff0000, 0 0 0.26em 0.13em #ff3300; }
+  }
+  .anim-pumpkinglow { display: inline-block; position: relative; overflow: visible; }
+  .anim-pumpkinglow::before, .anim-pumpkinglow::after {
+    content: '';
+    position: absolute;
+    width: 0.1em; height: 0.13em;
+    border-radius: 50%;
+    top: 0.34em;
+    background: #ffcc33;
+    animation: anim-pumpkinglow-kf 1.3s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .anim-pumpkinglow::before { left: 0.29em; }
+  .anim-pumpkinglow::after { left: 0.61em; }
+
+  /* Позволяем эффектам, выходящим за рамку иконки в магазине (брызги,
+     реплики), быть видимыми, а не обрезаться контейнером */
+  .shop-item:has(.anim-hohoho),
+  .shop-item:has(.anim-swim),
+  .shop-item:has(.anim-pumpkinglow) {
+    overflow: visible;
   }
 
   /* ===== РАМКИ (стили) ===== */
@@ -3664,12 +4013,6 @@ applyWeatherByTime();
 
 
 
-
-
-
-
-
-
 <!-- СКРИПТЫ -->
 <script>
 (function() {
@@ -3723,7 +4066,30 @@ applyWeatherByTime();
     { id: 'alien', emoji: '👾', name: 'Инопланетянин', price: 150 },
     { id: 'ghost', emoji: '👻', name: 'Призрак', price: 150 },
     { id: 'skull', emoji: '💀', name: 'Череп', price: 150 },
-    { id: 'crystal', emoji: '💎', name: 'Кристалл', price: 150 }
+    { id: 'crystal', emoji: '💎', name: 'Кристалл', price: 150 },
+
+    // Анимированные аватары — идут после всех остальных, 250 монет каждый.
+    // У каждого своя уникальная анимация/эмоция.
+    { id: 'anim_cyberagent', emoji: '🤖', name: 'Кибер-агент', price: 250, anim: 'anim-laser' },
+    { id: 'anim_ufo', emoji: '🛸', name: 'НЛО Зорг', price: 250, anim: 'anim-spin' },
+    { id: 'anim_firedemon', emoji: '👹', name: 'Огняр', price: 250, anim: 'anim-flame' },
+    { id: 'anim_icespirit', emoji: '🧊', name: 'Ледяной дух', price: 250, anim: 'anim-shiver' },
+    { id: 'anim_ninja', emoji: '🥷', name: 'Тень-ниндзя', price: 250, anim: 'anim-vanish' },
+    { id: 'anim_countvamp', emoji: '🧛', name: 'Граф Вамп', price: 250, anim: 'anim-pulse-red' },
+    { id: 'anim_discophantom', emoji: '🕺', name: 'Диско-фантом', price: 250, anim: 'anim-dance' },
+    { id: 'anim_zombiebob', emoji: '🧟', name: 'Зомби Боб', price: 250, anim: 'anim-wobble' },
+    { id: 'anim_guardian', emoji: '👼', name: 'Хранитель Ноа', price: 250, anim: 'anim-float' },
+    { id: 'anim_impbouncer', emoji: '😈', name: 'Бес Шустрик', price: 250, anim: 'anim-shake' },
+    { id: 'anim_glitchbyte', emoji: '👾', name: 'Глитч-байт', price: 250, anim: 'anim-glitch' },
+    { id: 'anim_dragonignis', emoji: '🐉', name: 'Дракон Игнис', price: 250, anim: 'anim-ember' },
+    { id: 'anim_orbitmage', emoji: '🧙', name: 'Маг Орбит', price: 250, anim: 'anim-orbit' },
+    { id: 'anim_clownhop', emoji: '🤡', name: 'Прыг-клоун', price: 250, anim: 'anim-bounce' },
+    { id: 'anim_wanderghost', emoji: '👻', name: 'Дух-скиталец', price: 250, anim: 'anim-drift' },
+    { id: 'anim_zelin', emoji: '👽', name: 'Зелин с Нибиру', price: 250, anim: 'anim-pulse-green' },
+    { id: 'anim_captainstill', emoji: '🏴‍☠️', name: 'Капитан Штиль', price: 250, anim: 'anim-sway' },
+    { id: 'anim_thundergod', emoji: '⚡', name: 'Гром', price: 250, anim: 'anim-lightning' },
+    { id: 'anim_shadowcat', emoji: '🐈‍⬛', name: 'Гуляющий кот', price: 250, anim: 'anim-walk' },
+    { id: 'anim_romeo', emoji: '😍', name: 'Ромео Сердечкин', price: 250, anim: 'anim-heartbeat' }
   ];
 
   const FRAMES = [
@@ -3824,7 +4190,29 @@ applyWeatherByTime();
     { id: 'rainbow_emoji', emoji: '🌈', name: 'Радуга', price: 100 },
     { id: 'lightning2', emoji: '⚡', name: 'Молния', price: 100 },
     { id: 'confetti', emoji: '🎊', name: 'Конфетти', price: 100 },
-    { id: 'flower', emoji: '🌸', name: 'Цветок', price: 100 }
+    { id: 'flower', emoji: '🌸', name: 'Цветок', price: 100 },
+
+    // Анимированные смайлики — идут после всех остальных, 150 монет каждый.
+    { id: 'anim_target', emoji: '🎯', name: 'Точно в цель', price: 150, anim: 'anim-laser' },
+    { id: 'anim_gamer', emoji: '🎮', name: 'Геймер', price: 150, anim: 'anim-shake' },
+    { id: 'anim_dice', emoji: '🎲', name: 'Кубик удачи', price: 150, anim: 'anim-spin' },
+    { id: 'anim_clover', emoji: '🍀', name: 'Клевер удачи', price: 150, anim: 'anim-float' },
+    { id: 'anim_superstar', emoji: '🌟', name: 'Суперзвезда', price: 150, anim: 'anim-rainbow' },
+    { id: 'anim_star', emoji: '⭐', name: 'Звезда', price: 150, anim: 'anim-orbit' },
+    { id: 'anim_moon', emoji: '🌙', name: 'Месяц', price: 150, anim: 'anim-drift' },
+    { id: 'anim_sun', emoji: '☀️', name: 'Солнышко', price: 150, anim: 'anim-ember' },
+    { id: 'anim_cloud', emoji: '☁️', name: 'Облачко', price: 150, anim: 'anim-sway' },
+    { id: 'anim_snowman', emoji: '⛄', name: 'Снеговик', price: 150, anim: 'anim-shiver' },
+    { id: 'anim_pumpkin', emoji: '🎃', name: 'Тыква-джек', price: 150, anim: 'anim-pumpkinglow' },
+    { id: 'anim_santa', emoji: '🎅', name: 'Дед Мороз', price: 150, anim: 'anim-hohoho' },
+    { id: 'anim_butterfly', emoji: '🦋', name: 'Бабочка', price: 150, anim: 'anim-wobble' },
+    { id: 'anim_bee', emoji: '🐝', name: 'Пчёлка', price: 150, anim: 'anim-vanish' },
+    { id: 'anim_dino2', emoji: '🦖', name: 'Дино', price: 150, anim: 'anim-ember' },
+    { id: 'anim_dolphin', emoji: '🐬', name: 'Дельфин', price: 150, anim: 'anim-swim' },
+    { id: 'anim_parrot', emoji: '🦜', name: 'Попугай', price: 150, anim: 'anim-rainbow' },
+    { id: 'anim_pizza', emoji: '🍕', name: 'Пицца-тайм', price: 150, anim: 'anim-heartbeat' },
+    { id: 'anim_donut', emoji: '🍩', name: 'Пончик', price: 150, anim: 'anim-bounce' },
+    { id: 'anim_firework', emoji: '🎆', name: 'Салют', price: 150, anim: 'anim-lightning' }
   ];
 
   const DEFAULT_PROFILE = {
@@ -3907,7 +4295,9 @@ if (nickColor === 'rainbow') {
     if (frame && frame.id !== 'none') {
       preview.classList.add('frame-' + frame.id);
     }
+    if (av.anim) preview.classList.add(av.anim);
   }
+
 
   // ===== Тултип с названием предмета для телефонов =====
   // На ПК название видно по наведению (title=...). На телефоне hover
@@ -3932,6 +4322,17 @@ if (nickColor === 'rainbow') {
     clearTimeout(shopTooltipEl._hideTimer);
     shopTooltipEl._hideTimer = setTimeout(() => shopTooltipEl.classList.remove('visible'), 1600);
   }
+  // Скрывает подсказку сразу — при прокрутке магазина или выходе из него,
+  // чтобы название купленного предмета не «зависало» на экране.
+  function hideShopTooltip() {
+    armedShopItem = null;
+    clearTimeout(armedShopTimer);
+    if (shopTooltipEl) {
+      clearTimeout(shopTooltipEl._hideTimer);
+      shopTooltipEl.classList.remove('visible');
+    }
+  }
+  window.pbHideShopTooltip = hideShopTooltip;
   function bindShopItemTap(div, label, onConfirm) {
     div.title = label; // тултип по наведению для ПК остаётся как был
     div.addEventListener('click', (e) => {
@@ -3956,7 +4357,7 @@ if (nickColor === 'rainbow') {
     AVATARS.forEach(a => {
       const div = document.createElement('div');
       div.className = 'shop-item avatar-item' + (profile.inventory.includes(a.id) ? ' owned' : '');
-      div.innerHTML = `<div class="item-icon">${a.emoji}</div><div class="item-price">💰${a.price}</div>`;
+      div.innerHTML = `<div class="item-icon${a.anim ? ' ' + a.anim : ''}">${a.emoji}</div><div class="item-price">💰${a.price}</div>`;
       bindShopItemTap(div, a.name + ' (' + a.price + '💰)', () => buy('avatar', a));
       ag.appendChild(div);
     });
@@ -3991,7 +4392,7 @@ if (nickColor === 'rainbow') {
         const div = document.createElement('div');
         const owned = profile.inventory.includes('emoji_' + em.id);
         div.className = 'shop-item emoji-item' + (owned ? ' owned' : '');
-        div.innerHTML = `<div class="item-icon">${em.emoji}</div><div class="item-price">${owned ? '✔ Куплено' : '💰' + em.price}</div>`;
+        div.innerHTML = `<div class="item-icon${em.anim ? ' ' + em.anim : ''}">${em.emoji}</div><div class="item-price">${owned ? '✔ Куплено' : '💰' + em.price}</div>`;
         bindShopItemTap(div, em.name + ' (' + em.price + '💰)', () => buy('emoji', em));
         eg.appendChild(div);
       });
@@ -4052,14 +4453,15 @@ if (nickColor === 'rainbow') {
     document.getElementById('help-modal').classList.add('active');
   };
 
-  document.getElementById('close-profile').onclick = () => document.getElementById('profile-modal').classList.remove('active');
-  document.getElementById('close-shop').onclick = () => document.getElementById('shop-modal').classList.remove('active');
-  document.getElementById('close-help').onclick = () => document.getElementById('help-modal').classList.remove('active');
+  document.getElementById('close-profile').onclick = () => { document.getElementById('profile-modal').classList.remove('active'); hideShopTooltip(); };
+  document.getElementById('close-shop').onclick = () => { document.getElementById('shop-modal').classList.remove('active'); hideShopTooltip(); };
+  document.getElementById('close-help').onclick = () => { document.getElementById('help-modal').classList.remove('active'); hideShopTooltip(); };
 
   document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', function(e) {
       if (e.target === this) {
         this.classList.remove('active');
+        hideShopTooltip();
       }
     });
   });
@@ -4067,8 +4469,15 @@ if (nickColor === 'rainbow') {
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
       document.querySelectorAll('.modal.active').forEach(modal => modal.classList.remove('active'));
+      hideShopTooltip();
     }
   });
+
+  // Подсказка с названием предмета не должна «висеть» при прокрутке магазина
+  const shopModalContent = document.querySelector('#shop-modal .modal-content');
+  if (shopModalContent) {
+    shopModalContent.addEventListener('scroll', hideShopTooltip, { passive: true });
+  }
 
   updateUI();
   window.AVATARS = AVATARS;
@@ -4081,6 +4490,7 @@ window.SHOP_EMOJIS = EMOJIS_SHOP;
 <!-- Замаскированный Рикролл -->
 <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" 
    style="position: fixed; bottom: 5px; right: 5px; width: 20px; height: 20px; background: transparent; opacity: 0; z-index: 99999; display: block;"></a>
+
 
 
 
@@ -4219,6 +4629,7 @@ window.SHOP_EMOJIS = EMOJIS_SHOP;
     display: flex;
   }
 </style>
+
 
 <!-- Кнопка чата перенесена в #top-toolbar-left в начале body -->
 
@@ -4502,9 +4913,10 @@ function displayMessage(msg) {
 
   // Аватар (эмодзи)
   let avatarEmoji = '🙂';
+  let avatarAnim = '';
   if (typeof AVATARS !== 'undefined') {
     const av = AVATARS.find(a => a.id === msg.avatar);
-    if (av) avatarEmoji = av.emoji;
+    if (av) { avatarEmoji = av.emoji; if (av.anim) avatarAnim = av.anim; }
   }
 
   // Рамка (класс)
@@ -4537,10 +4949,20 @@ function displayMessage(msg) {
     }
   });
 
+  // Анимированные смайлики из магазина — оборачиваем в сообщении, чтобы они
+  // были видны анимированными и в чате, а не только в магазине.
+  if (Array.isArray(window.SHOP_EMOJIS)) {
+    window.SHOP_EMOJIS.forEach(em => {
+      if (em.anim && textHtml.indexOf(em.emoji) !== -1) {
+        textHtml = textHtml.split(em.emoji).join(`<span class="${em.anim}">${em.emoji}</span>`);
+      }
+    });
+  }
+
   // Контейнер для аватара с внутренним span для эмодзи
   div.innerHTML = `
     <span class="favaframe ${frameClass}">
-      <span class="emoji">${avatarEmoji}</span>
+      <span class="emoji${avatarAnim ? ' ' + avatarAnim : ''}">${avatarEmoji}</span>
     </span>
     <span class="${nickClass}" ${colorStyle}>${escapeHtml(msg.nickname)}</span>
     <span class="ftime">${time}</span>
