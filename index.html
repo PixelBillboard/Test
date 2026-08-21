@@ -144,6 +144,12 @@ canvas {
 }
     
   </style>
+  <!-- Twemoji — рисует эмодзи как одинаковые SVG-картинки на всех
+       устройствах и браузерах, чтобы аватары и смайлики выглядели
+       одинаково на телефоне и на ПК (а не по-разному, как раньше,
+       когда каждая ОС использовала свой собственный эмодзи-шрифт). -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js"
+    onload="window.pbTwemojiReady = true; if (window.pbEmojify) window.pbEmojify(document.body);"></script>
 </head>
 <body>
   <h1>PixelBillboard</h1>
@@ -215,15 +221,7 @@ canvas {
       win: () => { [660, 880, 1100].forEach((f, i) => tone(f, 0.14, { type: 'triangle', volume: 0.07, delay: i * 0.1 })); },
       gameover: () => { tone(420, 0.16, { type: 'sawtooth', volume: 0.06, slideTo: 200 }); tone(280, 0.22, { type: 'sawtooth', volume: 0.06, slideTo: 120, delay: 0.14 }); },
       open: () => tone(500, 0.07, { type: 'sine', volume: 0.05, slideTo: 750 }),
-      close: () => tone(500, 0.07, { type: 'sine', volume: 0.05, slideTo: 320 }),
-      // Новое сообщение в чате — мягкий двухтональный «поп», приятнее старого писка
-      message: () => { tone(760, 0.08, { type: 'sine', volume: 0.06 }); tone(1140, 0.11, { type: 'sine', volume: 0.06, delay: 0.07 }); },
-      // Змейка съедает пиксель
-      eat: () => tone(880, 0.06, { type: 'square', volume: 0.06, slideTo: 1320 }),
-      // Змейка врезается — короткий резкий удар
-      crash: () => { tone(180, 0.14, { type: 'sawtooth', volume: 0.08, slideTo: 60 }); tone(90, 0.18, { type: 'sawtooth', volume: 0.06, slideTo: 40, delay: 0.05 }); },
-      // Тетрис — фигура упала и встала на место
-      drop: () => tone(220, 0.07, { type: 'square', volume: 0.06, slideTo: 90 })
+      close: () => tone(500, 0.07, { type: 'sine', volume: 0.05, slideTo: 320 })
     };
     window.pbSound = S;
 
@@ -233,6 +231,19 @@ canvas {
       if (el) S.click();
     }, true);
   })();
+
+  // ========== ЕДИНОЕ ОТОБРАЖЕНИЕ ЭМОДЗИ (Twemoji) ==========
+  // Разные устройства/ОС рисуют эмодзи по-разному (свой шрифт на
+  // Android, iOS, Windows), из-за чего аватары и смайлики выглядели
+  // неодинаково на телефоне и на ПК. pbEmojify() заменяет эмодзи-символы
+  // внутри переданного элемента на одинаковые SVG-картинки Twemoji.
+  // Вызывается заново после каждой перерисовки магазина/профиля/чата.
+  window.pbEmojify = function(el) {
+    if (!el || typeof window.twemoji === 'undefined') return;
+    try {
+      window.twemoji.parse(el, { folder: 'svg', ext: '.svg', className: 'pb-emoji' });
+    } catch (e) { /* тихо игнорируем — эмодзи останутся нативными */ }
+  };
 
     // ========== НАСТРОЙКИ ==========
     const PIXEL_PRICE = 50; // руб за пиксель
@@ -471,69 +482,47 @@ window.redraw = redraw;
 
   /* Лёгкое наложение "лупа → магазин → профиль → ?": кнопки слегка
      заходят друг на друга скруглёнными краями (текст/иконки не задеты,
-     перекрывается только пустой отступ по краям кнопки). */
-  #easter-input-container { position: relative; z-index: 2; }
+     перекрывается только пустой отступ по краям кнопки). Кнопка чата
+     стоит отдельно с обычным отступом. */
+  /* z-index поисковой капсулы поднят выше соседних кнопок, чтобы её
+     зелёная подсветка (box-shadow) была видна целиком по всему периметру,
+     а не только там, где её не перекрывают соседние кнопки. */
+  #easter-input-container { position: relative; z-index: 10; }
   #shop-btn { position: relative; z-index: 3; margin-left: -8px; }
   #profile-btn { position: relative; z-index: 4; margin-left: -8px; }
   #help-btn { position: relative; z-index: 5; margin-left: -6px; }
-
-  /* Кнопка чата и часы/дата — единая вытянутая таблетка в правом верхнем
-     углу (а не часть панели профиль/магазин). Кнопка — левый скруглённый
-     сегмент, время/дата — правый, без зазора между ними, одна общая тень. */
-  #chat-time-pill {
+  #fire-chat-btn { position: relative; z-index: 1; margin-left: 10px; }
+  /* Часы/дата (правый верхний угол). Раньше не имели адаптива под телефон
+     и на узких экранах могли наезжать на верхние кнопки. */
+  .msk-clock-widget {
     position: fixed;
     top: 15px;
     right: 15px;
-    z-index: 9999;
-    display: flex;
-    align-items: stretch;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-  }
-  #fire-chat-btn {
-    background: #e74c3c;
     color: white;
-    border: none;
-    padding: 0 14px;
-    font-size: 13px;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .msk-clock-widget {
-    position: static;
-    display: flex;
-    align-items: center;
-    color: white;
-    background: rgba(0,0,0,0.65);
-    padding: 5px 12px;
+    background: rgba(0,0,0,0.6);
+    padding: 4px 8px;
+    border-radius: 5px;
     font-family: monospace;
-    font-size: 14px;
+    font-size: 12px;
     line-height: 1.4;
     text-align: right;
     white-space: nowrap;
+    z-index: 500;
     pointer-events: none;
   }
   @media (max-width: 768px) {
-    #chat-time-pill { top: 12px; right: 12px; }
-    .msk-clock-widget { font-size: 10px; padding: 4px 9px; }
+    .msk-clock-widget { top: 12px; right: 12px; font-size: 10px; padding: 4px 7px; }
   }
   @media (max-width: 600px) {
-    #chat-time-pill { top: 10px; right: 10px; }
-    .msk-clock-widget { font-size: 9px; padding: 3px 8px; }
+    .msk-clock-widget { top: 10px; right: 10px; font-size: 9px; padding: 3px 6px; }
   }
   @media (max-width: 420px) {
-    .msk-clock-widget { font-size: 8px; padding: 3px 6px; line-height: 1.3; }
+    .msk-clock-widget { font-size: 8px; padding: 3px 5px; line-height: 1.3; }
   }
   @media (max-width: 360px) {
-    #chat-time-pill { top: 8px; right: 8px; }
-    .msk-clock-widget { font-size: 7px; padding: 2px 5px; }
+    .msk-clock-widget { font-size: 7px; padding: 2px 4px; right: 8px; top: 8px; }
   }
-  #easter-input-container { display: flex; align-items: center; background: rgba(0,0,0,0.7); border-radius: 20px; padding: 5px 10px; backdrop-filter: blur(5px); box-shadow: 0 0 10px rgba(0,255,0,0.3); flex-shrink: 0; }
+  #easter-input-container { display: flex; align-items: center; background: rgba(0,0,0,0.7); border-radius: 20px; padding: 5px 10px; backdrop-filter: blur(5px); box-shadow: 0 0 12px 2px rgba(0,255,0,0.35); flex-shrink: 0; }
   #easter-input-container .icon { font-size: 18px; margin-right: 5px; opacity: 0.8; }
   #easter-input { background: transparent; border: none; color: #0f0; font-family: monospace; font-size: 14px; width: 120px; outline: none; }
   #easter-input::placeholder { color: rgba(0,255,0,0.5); }
@@ -647,10 +636,7 @@ window.redraw = redraw;
   <button id="shop-btn">🛒 Магазин</button>
   <button id="profile-btn">👤 Профиль</button>
   <button id="help-btn">❓</button>
-</div>
-
-<div id="chat-time-pill">
-  <button id="fire-chat-btn">💬 <span id="fire-chat-btn-label">Чат</span></button>
+  <button id="fire-chat-btn"><span class="fire-chat-icon">💬</span><span class="fire-chat-label">Чат</span></button>
 </div>
 
 <script>
@@ -996,7 +982,6 @@ easterInput.addEventListener('keydown', function(e) {
 
     if (!isCellFree(newHead.x, newHead.y) || snake.some(s => s.x === newHead.x && s.y === newHead.y)) {
       gameOver = true;
-      if (window.pbSound) window.pbSound.crash();
       const snakeScore = snake.length - 3;
       if (snakeScore > 0) {
         const coins = Math.floor(snakeScore / 3);
@@ -1013,7 +998,6 @@ easterInput.addEventListener('keydown', function(e) {
 
     snake.unshift(newHead);
     if (food && newHead.x === food.x && newHead.y === food.y) {
-      if (window.pbSound) window.pbSound.eat();
       food = spawnFood();
       if (!food) {
         gameOver = true;
@@ -1697,7 +1681,6 @@ addEasterEgg('tetris', 'TETRIS', function() {
   function placePiece() {
     for (let r = 0; r < currentPiece.length; r++) for (let c = 0; c < currentPiece[0].length; c++)
       if (currentPiece[r][c]) board[currentY + r][currentX + c] = currentColor;
-    if (window.pbSound) window.pbSound.drop();
     clearLines(); spawnPiece();
   }
 
@@ -2690,9 +2673,7 @@ addEasterEgg('scorpion', 'SCORPION', function() {
     ctx.lineTo(distance, 0);
     ctx.stroke();
 
-    
-   
-// Звенья
+    // Звенья
     ctx.strokeStyle = '#888';
     ctx.lineWidth = 6;
     for (let i = 0; i < distance; i += 25) {
@@ -2995,8 +2976,7 @@ addEasterEgg('up', 'UP', function() {
     if (!clockEl) {
       clockEl = document.createElement('div'); clockEl.id = 'msk-clock';
       clockEl.className = 'msk-clock-widget';
-      const pill = document.getElementById('chat-time-pill');
-      (pill || document.body).appendChild(clockEl);
+      document.body.appendChild(clockEl);
     }
     clockEl.innerHTML = `${dateStr}<br>${timeStr} MSK`;
   }
@@ -3281,7 +3261,7 @@ applyWeatherByTime();
       function checkCorner(x, y, maxX, maxY) {
         if ((x <= 0 || x >= maxX) && (y <= 0 || y >= maxY)) {
           const msg = document.createElement('div'); msg.textContent = '🎯 Точно в угол!';
-       Object.assign(msg.style, { position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)', color: '#ff0', background: 'rgba(0,0,0,0.8)', padding: '0.3rem 1rem', borderRadius: '5px', zIndex: 700, fontWeight: 'bold', pointerEvents: 'none' });
+          Object.assign(msg.style, { position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)', color: '#ff0', background: 'rgba(0,0,0,0.8)', padding: '0.3rem 1rem', borderRadius: '5px', zIndex: 700, fontWeight: 'bold', pointerEvents: 'none' });
           document.body.appendChild(msg); setTimeout(() => msg.remove(), 1000);
         }
       }
@@ -3350,6 +3330,7 @@ applyWeatherByTime();
     align-items: center;
     justify-content: center;
     white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
     border: 2px solid transparent;
     transition: background 0.2s, border-color 0.2s;
     flex-shrink: 0;
@@ -3371,7 +3352,7 @@ applyWeatherByTime();
     #top-toolbar-left { top: 12px; left: 12px; max-width: calc(100vw - 170px); }
     #easter-input-container { height: 30px; padding: 0 8px; }
     #easter-input { width: 60px; font-size: 12px; }
-    #profile-btn, #shop-btn, #help-btn {
+    #profile-btn, #shop-btn, #help-btn, #fire-chat-btn {
       font-size: 12px;
       height: 30px;
       line-height: 30px;
@@ -3379,7 +3360,8 @@ applyWeatherByTime();
     }
     #shop-btn, #profile-btn { margin-left: -6px; }
     #help-btn { margin-left: -5px; }
-    #fire-chat-btn { font-size: 12px; padding: 0 11px; }
+    #fire-chat-btn { margin-left: 8px; }
+    #fire-chat-btn .fire-chat-label { margin-left: 4px; }
   }
 
   /* ===== ДЛЯ ТЕЛЕФОНОВ (≤ 600px) ===== */
@@ -3388,7 +3370,7 @@ applyWeatherByTime();
     #easter-input-container { height: 28px; padding: 0 6px; }
     #easter-input { width: 50px; font-size: 11px; }
     #easter-input-container .icon { font-size: 14px; }
-    #profile-btn, #shop-btn, #help-btn {
+    #profile-btn, #shop-btn, #help-btn, #fire-chat-btn {
       font-size: 11px;
       height: 28px;
       line-height: 28px;
@@ -3396,8 +3378,8 @@ applyWeatherByTime();
     }
     #shop-btn, #profile-btn { margin-left: -5px; }
     #help-btn { margin-left: -4px; }
-    #fire-chat-btn { font-size: 11px; padding: 0 9px; }
-    #fire-chat-btn-label { position: relative; left: -2px; }
+    #fire-chat-btn { margin-left: 6px; }
+    #fire-chat-btn .fire-chat-label { margin-left: 4px; }
   }
 
   /* ===== ДЛЯ ОЧЕНЬ МАЛЕНЬКИХ ЭКРАНОВ (≤ 420px) ===== */
@@ -3406,7 +3388,7 @@ applyWeatherByTime();
     #easter-input-container { height: 24px; padding: 0 4px; }
     #easter-input { width: 40px; font-size: 10px; }
     #easter-input-container .icon { font-size: 12px; }
-    #profile-btn, #shop-btn, #help-btn {
+    #profile-btn, #shop-btn, #help-btn, #fire-chat-btn {
       font-size: 9px;
       height: 24px;
       line-height: 24px;
@@ -3416,10 +3398,11 @@ applyWeatherByTime();
     #help-btn { padding: 0 3px; }
     #shop-btn, #profile-btn { margin-left: -3px; }
     #help-btn { margin-left: -2px; }
-    #fire-chat-btn { font-size: 9px; padding: 0 7px; }
-    #fire-chat-btn-label { position: relative; left: -2px; }
+    #fire-chat-btn { margin-left: 4px; }
+    #fire-chat-btn .fire-chat-label { margin-left: 3px; }
   }
-/* ===== МОДАЛЬНЫЕ ОКНА ===== */
+
+  /* ===== МОДАЛЬНЫЕ ОКНА ===== */
   .modal {
     display: none;
     position: fixed;
@@ -3445,7 +3428,8 @@ applyWeatherByTime();
     color: white;
     font-family: 'Segoe UI', sans-serif;
   }
-/* ===== ЕДИНЫЙ КРАСИВЫЙ СТИЛЬ ИГРОВЫХ ОКОН (2048/Тетрис/Мемори) ===== */
+
+  /* ===== ЕДИНЫЙ КРАСИВЫЙ СТИЛЬ ИГРОВЫХ ОКОН (2048/Тетрис/Мемори) ===== */
   .game-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.85);
@@ -3508,7 +3492,7 @@ applyWeatherByTime();
   @keyframes bitPop { 0% { transform: scale(0.3); opacity: 0.4; } 100% { transform: scale(1); opacity: 1; } }
 
   /* ===== СЕТКИ МАГАЗИНА ===== */
-  .avatar-grid, .frame-grid, .color-grid, .background-grid {
+  .avatar-grid, .frame-grid, .color-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
     gap: 8px;
@@ -3566,6 +3550,16 @@ applyWeatherByTime();
     justify-content: center;
     width: 100%;
   }
+  /* Превью аватара в профиле — раньше не имело центрирования (в отличие
+     от иконок в магазине), из-за чего эмодзи мог "прилипать" к верхнему
+     левому углу и выглядеть иначе, чем в магазине/чате. */
+  #profile-avatar-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    position: relative;
+  }
   .shop-item .color-swatch {
     width: 100%;
     height: 60%;
@@ -3611,36 +3605,6 @@ applyWeatherByTime();
 
   @keyframes anim-vanish-kf { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
   .anim-vanish { display: inline-block; animation: anim-vanish-kf 1.6s ease-in-out infinite; }
-
-  /* Тень-ниндзя — периодически пропадает в облаке дыма и появляется снова.
-     Дым клубится прямо из центра (там, где стоит ниндзя), а не сбоку. */
-  @keyframes anim-ninjasmoke-kf {
-    0%, 55% { opacity: 1; transform: scale(1); }
-    72% { opacity: 0.2; transform: scale(0.85); }
-    79%, 85% { opacity: 0; transform: scale(0.7); }
-    92% { opacity: 1; transform: scale(1.08); }
-    100% { opacity: 1; transform: scale(1); }
-  }
-  .anim-ninjasmoke { display: inline-block; position: relative; animation: anim-ninjasmoke-kf 3.4s ease-in-out infinite; }
-  .anim-ninjasmoke::before, .anim-ninjasmoke::after {
-    content: '💨';
-    position: absolute;
-    left: 50%; top: 50%;
-    font-size: 1em;
-    opacity: 0;
-    filter: grayscale(0.55) brightness(1.15) blur(0.3px);
-    pointer-events: none;
-    z-index: 4;
-    animation: anim-ninjasmoke-puff-kf 3.4s ease-in-out infinite;
-  }
-  .anim-ninjasmoke::before { animation-delay: 0s; }
-  .anim-ninjasmoke::after { animation-delay: 0.18s; font-size: 0.85em; }
-  @keyframes anim-ninjasmoke-puff-kf {
-    0%, 46% { opacity: 0; transform: translate(-50%, -50%) scale(0.15) rotate(0deg); }
-    60% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.15) rotate(20deg); }
-    75% { opacity: 0.65; transform: translate(-50%, -50%) scale(1.75) rotate(-15deg); }
-    90%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(2.3) rotate(30deg); }
-  }
 
   @keyframes anim-pulse-red-kf {
     0%, 100% { filter: drop-shadow(0 0 3px #ff0033); transform: scale(1); }
@@ -3704,11 +3668,24 @@ applyWeatherByTime();
     70% { transform: translateY(-4px) scaleY(1.02); }
   }
   .anim-bounce { display: inline-block; animation: anim-bounce-kf 1s ease-in-out infinite; }
-eyframes anim-drift-kf {
+
+  @keyframes anim-drift-kf {
     0%, 100% { transform: translateY(0) translateX(0); opacity: 1; }
     50% { transform: translateY(-6px) translateX(4px); opacity: 0.7; }
   }
   .anim-drift { display: inline-block; animation: anim-drift-kf 2.4s ease-in-out infinite; }
+
+  /* Дух-скиталец — более заметное, "призрачное" парение: покачивание
+     из стороны в сторону, лёгкий наклон и пульсация прозрачности,
+     чтобы анимация была явно видна, а не была почти незаметной. */
+  @keyframes anim-ghostfloat-kf {
+    0%   { transform: translate(0, 0) rotate(-4deg); opacity: 1; }
+    25%  { transform: translate(4px, -9px) rotate(3deg); opacity: 0.8; }
+    50%  { transform: translate(-3px, -3px) rotate(-3deg); opacity: 0.55; }
+    75%  { transform: translate(4px, -9px) rotate(4deg); opacity: 0.8; }
+    100% { transform: translate(0, 0) rotate(-4deg); opacity: 1; }
+  }
+  .anim-ghostfloat { display: inline-block; animation: anim-ghostfloat-kf 2.6s ease-in-out infinite; }
 
   @keyframes anim-pulse-green-kf {
     0%, 100% { filter: drop-shadow(0 0 3px #33ff66); transform: scale(1); }
@@ -3718,10 +3695,6 @@ eyframes anim-drift-kf {
 
   @keyframes anim-sway-kf { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
   .anim-sway { display: inline-block; animation: anim-sway-kf 2s ease-in-out infinite; transform-origin: bottom center; }
-
-  /* Месяц — медленно покачивается, как маятник, подвешенный сверху */
-  @keyframes anim-moonsway-kf { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
-  .anim-moonsway { display: inline-block; animation: anim-moonsway-kf 4s ease-in-out infinite; transform-origin: top center; }
 
   @keyframes anim-lightning-kf {
     0%, 89%, 100% { filter: brightness(1); }
@@ -3746,16 +3719,16 @@ eyframes anim-drift-kf {
   .anim-heartbeat { display: inline-block; animation: anim-heartbeat-kf 1.2s ease-in-out infinite; }
 
   @keyframes anim-walk-kf {
-    0%   { transform: translateX(-3px) scaleX(1)  translateY(0); }
-    12%  { transform: translateX(-2px) scaleX(1)  translateY(-1px); }
-    25%  { transform: translateX(-1px) scaleX(1)  translateY(0); }
-    37%  { transform: translateX(0px)  scaleX(1)  translateY(-1px); }
-    50%  { transform: translateX(1px)  scaleX(1)  translateY(0); }
-    62%  { transform: translateX(2px)  scaleX(1)  translateY(-1px); }
-    74%  { transform: translateX(3px)  scaleX(1)  translateY(0); }
-    75%  { transform: translateX(3px)  scaleX(-1) translateY(0); }
-    87%  { transform: translateX(1px)  scaleX(-1) translateY(-1px); }
-    100% { transform: translateX(-3px) scaleX(-1) translateY(0); }
+    0%   { transform: translateX(-9px) scaleX(1)  translateY(0); }
+    12%  { transform: translateX(-6px) scaleX(1)  translateY(-2px); }
+    25%  { transform: translateX(-3px) scaleX(1)  translateY(0); }
+    37%  { transform: translateX(0px)  scaleX(1)  translateY(-2px); }
+    50%  { transform: translateX(3px)  scaleX(1)  translateY(0); }
+    62%  { transform: translateX(6px)  scaleX(1)  translateY(-2px); }
+    74%  { transform: translateX(9px)  scaleX(1)  translateY(0); }
+    75%  { transform: translateX(9px)  scaleX(-1) translateY(0); }
+    87%  { transform: translateX(3px)  scaleX(-1) translateY(-2px); }
+    100% { transform: translateX(-9px) scaleX(-1) translateY(0); }
   }
   .anim-walk { display: inline-block; animation: anim-walk-kf 3.2s steps(1) infinite; }
 
@@ -3819,23 +3792,31 @@ eyframes anim-drift-kf {
     z-index: 5;
   }
 
-  /* Тыква-джек — кусается: резкий двойной укус (сжатие+поворот), а не свечение */
-  @keyframes anim-pumpkinbite-kf {
-    0%, 80% { transform: scale(1) rotate(0deg); }
-    85% { transform: scale(1.22, 0.8) rotate(-6deg); }
-    89% { transform: scale(0.92, 1.1) rotate(4deg); }
-    93% { transform: scale(1.14, 0.88) rotate(-3deg); }
-    97% { transform: scale(1) rotate(0deg); }
-    100% { transform: scale(1) rotate(0deg); }
+  /* Тыква-джек — светятся только глаза (два маленьких огонька), а не весь эмодзи */
+  @keyframes anim-pumpkinglow-kf {
+    0%, 100% { opacity: 0.55; box-shadow: 0 0 0.05em 0.02em #ff2200; }
+    50% { opacity: 1; box-shadow: 0 0 0.16em 0.08em #ff0000, 0 0 0.26em 0.13em #ff3300; }
   }
-  .anim-pumpkinbite { display: inline-block; transform-origin: 50% 62%; animation: anim-pumpkinbite-kf 2.4s ease-in-out infinite; }
+  .anim-pumpkinglow { display: inline-block; position: relative; overflow: visible; }
+  .anim-pumpkinglow::before, .anim-pumpkinglow::after {
+    content: '';
+    position: absolute;
+    width: 0.1em; height: 0.13em;
+    border-radius: 50%;
+    top: 0.34em;
+    background: #ffcc33;
+    animation: anim-pumpkinglow-kf 1.3s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .anim-pumpkinglow::before { left: 0.29em; }
+  .anim-pumpkinglow::after { left: 0.61em; }
 
   /* Позволяем эффектам, выходящим за рамку иконки в магазине (брызги,
      реплики), быть видимыми, а не обрезаться контейнером */
   .shop-item:has(.anim-hohoho),
   .shop-item:has(.anim-swim),
-  .shop-item:has(.anim-pumpkinbite),
-  .shop-item:has(.anim-ninjasmoke) {
+  .shop-item:has(.anim-pumpkinglow) {
     overflow: visible;
   }
 
@@ -3922,7 +3903,9 @@ eyframes anim-drift-kf {
 
 .favaframe {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
   height: 24px;
   border-radius: 4px;
@@ -3932,26 +3915,34 @@ eyframes anim-drift-kf {
   margin: 0 !important;
   flex-shrink: 0;
   border: 2px solid transparent !important;
-  overflow: hidden;
 }
 
-/* Базовый вид превью аватара в профиле (тот же принцип, что у .favaframe:
-   анимации аватара не должны вылезать за пределы рамки) */
-.frame-preview {
-  position: relative;
-  box-sizing: border-box;
-  overflow: hidden;
-  border-radius: 4px;
-}
-
-/* Внутренний контейнер для эмодзи (создаётся в JS) */
+/* Внутренний контейнер для эмодзи (создаётся в JS). Центрирование теперь
+   идёт через flex-выравнивание родителя (.favaframe), а не через
+   position:absolute + transform на самом эмодзи — иначе анимации
+   (вращение, покачивание, ходьба и т.д.), которые тоже используют
+   transform, "перебивали" центрирование и сдвигали/обрезали аватар
+   в чате, из-за чего некоторые аватары выглядели иначе, чем в магазине. */
 .favaframe .emoji {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: static;
   font-size: 16px;
   line-height: 1;
+}
+
+/* Картинки Twemoji (см. window.pbEmojify) — подгоняются под размер
+   шрифта того места, где они показаны (иконка магазина, превью
+   профиля, аватар/смайлик в чате), чтобы выглядеть одинаково
+   на любом устройстве вместо эмодзи-шрифта конкретной ОС. */
+img.pb-emoji {
+  height: 1em;
+  width: 1em;
+  margin: 0;
+  padding: 0;
+  vertical-align: -0.15em;
+  object-fit: contain;
+  display: inline-block;
+  border: none;
+  background: none;
 }
 
 /* Для рамок сохраняем классы, но без лишних отступов */
@@ -4010,8 +4001,6 @@ eyframes anim-drift-kf {
     <div class="color-grid" id="color-list"></div>
     <h3>Смайлики для чата</h3>
     <div class="avatar-grid" id="emoji-list"></div>
-    <h3>Фоны</h3>
-    <div class="background-grid" id="background-list"></div>
     <button id="close-shop" style="margin-top:10px;">Закрыть</button>
   </div>
 </div>
@@ -4091,6 +4080,12 @@ eyframes anim-drift-kf {
 
 
 
+
+
+
+
+
+
 <!-- СКРИПТЫ -->
 <script>
 (function() {
@@ -4139,7 +4134,7 @@ eyframes anim-drift-kf {
     { id: 'zombie_m', emoji: '🧟‍♂️', name: 'Зомби-м', price: 150 },
     { id: 'zombie_f', emoji: '🧟‍♀️', name: 'Зомби-ж', price: 150 },
     { id: 'villain_m', emoji: '🦹‍♂️', name: 'Злодей', price: 150 },
-    { id: 'villain_f', emoji: '👺', name: 'Тэнгу', price: 150 },
+    { id: 'villain_f', emoji: '🦹‍♀️', name: 'Злодейка', price: 150 },
     { id: 'robot', emoji: '🤖', name: 'Робот', price: 150 },
     { id: 'alien', emoji: '👾', name: 'Инопланетянин', price: 150 },
     { id: 'ghost', emoji: '👻', name: 'Призрак', price: 150 },
@@ -4151,8 +4146,8 @@ eyframes anim-drift-kf {
     { id: 'anim_cyberagent', emoji: '🤖', name: 'Кибер-агент', price: 250, anim: 'anim-laser' },
     { id: 'anim_ufo', emoji: '🛸', name: 'НЛО Зорг', price: 250, anim: 'anim-spin' },
     { id: 'anim_firedemon', emoji: '👹', name: 'Огняр', price: 250, anim: 'anim-flame' },
-    { id: 'anim_icespirit', emoji: '🧊', name: 'Кубик льда', price: 250, anim: 'anim-shiver' },
-    { id: 'anim_ninja', emoji: '🥷', name: 'Тень-ниндзя', price: 250, anim: 'anim-ninjasmoke' },
+    { id: 'anim_icespirit', emoji: '🧊', name: 'Ледяной дух', price: 250, anim: 'anim-shiver' },
+    { id: 'anim_ninja', emoji: '🥷', name: 'Тень-ниндзя', price: 250, anim: 'anim-vanish' },
     { id: 'anim_countvamp', emoji: '🧛', name: 'Граф Вамп', price: 250, anim: 'anim-pulse-red' },
     { id: 'anim_discophantom', emoji: '🕺', name: 'Диско-фантом', price: 250, anim: 'anim-dance' },
     { id: 'anim_zombiebob', emoji: '🧟', name: 'Зомби Боб', price: 250, anim: 'anim-wobble' },
@@ -4160,13 +4155,13 @@ eyframes anim-drift-kf {
     { id: 'anim_impbouncer', emoji: '😈', name: 'Бес Шустрик', price: 250, anim: 'anim-shake' },
     { id: 'anim_glitchbyte', emoji: '👾', name: 'Глитч-байт', price: 250, anim: 'anim-glitch' },
     { id: 'anim_dragonignis', emoji: '🐉', name: 'Дракон Игнис', price: 250, anim: 'anim-ember' },
-    { id: 'anim_orbitmage', emoji: '🧚', name: 'Фея', price: 250, anim: 'anim-orbit' },
+    { id: 'anim_orbitmage', emoji: '🧙', name: 'Маг Орбит', price: 250, anim: 'anim-orbit' },
     { id: 'anim_clownhop', emoji: '🤡', name: 'Прыг-клоун', price: 250, anim: 'anim-bounce' },
-    { id: 'anim_wanderghost', emoji: '👻', name: 'Дух-скиталец', price: 250, anim: 'anim-drift' },
+    { id: 'anim_wanderghost', emoji: '👻', name: 'Дух-скиталец', price: 250, anim: 'anim-ghostfloat' },
     { id: 'anim_zelin', emoji: '👽', name: 'Зелин с Нибиру', price: 250, anim: 'anim-pulse-green' },
     { id: 'anim_captainstill', emoji: '🏴‍☠️', name: 'Капитан Штиль', price: 250, anim: 'anim-sway' },
-    { id: 'anim_thundergod', emoji: '⚡', name: 'Молния', price: 250, anim: 'anim-lightning' },
-    { id: 'anim_shadowcat', emoji: '🐈', name: 'Гуляющий кот', price: 250, anim: 'anim-walk' },
+    { id: 'anim_thundergod', emoji: '⚡', name: 'Гром', price: 250, anim: 'anim-lightning' },
+    { id: 'anim_shadowcat', emoji: '🐈‍⬛', name: 'Гуляющий кот', price: 250, anim: 'anim-walk' },
     { id: 'anim_romeo', emoji: '😍', name: 'Ромео Сердечкин', price: 250, anim: 'anim-heartbeat' }
   ];
 
@@ -4272,16 +4267,16 @@ eyframes anim-drift-kf {
 
     // Анимированные смайлики — идут после всех остальных, 150 монет каждый.
     { id: 'anim_target', emoji: '🎯', name: 'Точно в цель', price: 150, anim: 'anim-laser' },
-    { id: 'anim_gamer', emoji: '🎮', name: 'Геймпад', price: 150, anim: 'anim-shake' },
+    { id: 'anim_gamer', emoji: '🎮', name: 'Геймер', price: 150, anim: 'anim-shake' },
     { id: 'anim_dice', emoji: '🎲', name: 'Кубик удачи', price: 150, anim: 'anim-spin' },
     { id: 'anim_clover', emoji: '🍀', name: 'Клевер удачи', price: 150, anim: 'anim-float' },
     { id: 'anim_superstar', emoji: '🌟', name: 'Суперзвезда', price: 150, anim: 'anim-rainbow' },
     { id: 'anim_star', emoji: '⭐', name: 'Звезда', price: 150, anim: 'anim-orbit' },
-    { id: 'anim_moon', emoji: '🌙', name: 'Месяц', price: 150, anim: 'anim-moonsway' },
+    { id: 'anim_moon', emoji: '🌙', name: 'Месяц', price: 150, anim: 'anim-drift' },
     { id: 'anim_sun', emoji: '☀️', name: 'Солнышко', price: 150, anim: 'anim-ember' },
     { id: 'anim_cloud', emoji: '☁️', name: 'Облачко', price: 150, anim: 'anim-sway' },
     { id: 'anim_snowman', emoji: '⛄', name: 'Снеговик', price: 150, anim: 'anim-shiver' },
-    { id: 'anim_pumpkin', emoji: '🎃', name: 'Тыква-Джек', price: 150, anim: 'anim-pumpkinbite' },
+    { id: 'anim_pumpkin', emoji: '🎃', name: 'Тыква-джек', price: 150, anim: 'anim-pumpkinglow' },
     { id: 'anim_santa', emoji: '🎅', name: 'Дед Мороз', price: 150, anim: 'anim-hohoho' },
     { id: 'anim_butterfly', emoji: '🦋', name: 'Бабочка', price: 150, anim: 'anim-wobble' },
     { id: 'anim_bee', emoji: '🐝', name: 'Пчёлка', price: 150, anim: 'anim-vanish' },
@@ -4293,37 +4288,11 @@ eyframes anim-drift-kf {
     { id: 'anim_firework', emoji: '🎆', name: 'Салют', price: 150, anim: 'anim-lightning' }
   ];
 
-  // Фоны для аватара — отображаются позади аватара, но внутри рамки.
-  // Покупаются в магазине за 100 монет каждый (кроме "Без фона" — бесплатно).
-  const BACKGROUNDS = [
-    { id: 'none', name: 'Без фона', price: 0, css: 'transparent' },
-    { id: 'bg_red', name: 'Алый закат', price: 100, css: 'linear-gradient(135deg, #ff512f, #dd2476)' },
-    { id: 'bg_orange', name: 'Оранж', price: 100, css: 'linear-gradient(135deg, #f7971e, #ffd200)' },
-    { id: 'bg_yellow', name: 'Жёлтый зной', price: 100, css: 'linear-gradient(135deg, #ffe259, #ffa751)' },
-    { id: 'bg_green', name: 'Весенняя зелень', price: 100, css: 'linear-gradient(135deg, #56ab2f, #a8e063)' },
-    { id: 'bg_teal', name: 'Изумрудный', price: 100, css: 'linear-gradient(135deg, #11998e, #38ef7d)' },
-    { id: 'bg_cyan', name: 'Голубой лёд', price: 100, css: 'linear-gradient(135deg, #00c6ff, #0072ff)' },
-    { id: 'bg_blue', name: 'Морская волна', price: 100, css: 'linear-gradient(135deg, #2193b0, #6dd5ed)' },
-    { id: 'bg_indigo', name: 'Индиго', price: 100, css: 'linear-gradient(135deg, #654ea3, #eaafc8)' },
-    { id: 'bg_purple', name: 'Фиолет', price: 100, css: 'linear-gradient(135deg, #8e2de2, #4a00e0)' },
-    { id: 'bg_pink', name: 'Розовый бриз', price: 100, css: 'linear-gradient(135deg, #ff6a88, #ff99ac)' },
-    { id: 'bg_magenta', name: 'Маджента', price: 100, css: 'linear-gradient(135deg, #c31432, #240b36)' },
-    { id: 'bg_brown', name: 'Земляной', price: 100, css: 'linear-gradient(135deg, #8b5e3c, #3e2723)' },
-    { id: 'bg_gray', name: 'Графит', price: 100, css: 'linear-gradient(135deg, #757f9a, #d7dde8)' },
-    { id: 'bg_black', name: 'Полночь', price: 100, css: 'linear-gradient(135deg, #232526, #414345)' },
-    { id: 'bg_gold', name: 'Золото', price: 100, css: 'linear-gradient(135deg, #f7971e, #ffd700)' },
-    { id: 'bg_mint', name: 'Мятный', price: 100, css: 'linear-gradient(135deg, #a8ff78, #78ffd6)' },
-    { id: 'bg_sunset', name: 'Закат солнца', price: 100, css: 'linear-gradient(135deg, #ff512f, #f09819)' },
-    { id: 'bg_ocean', name: 'Океан', price: 100, css: 'linear-gradient(135deg, #2e3192, #1bffff)' },
-    { id: 'bg_lava', name: 'Лава', price: 100, css: 'linear-gradient(135deg, #f85032, #e73827)' },
-    { id: 'bg_galaxy', name: 'Галактика', price: 100, css: 'linear-gradient(135deg, #360033, #0b8793)' }
-  ];
-
   const DEFAULT_PROFILE = {
     nickname: 'Player',
     coins: 0,
     inventory: ['default', 'none'],
-    equipped: { avatar: 'default', frame: 'none', nickColor: 'default', background: 'none' },
+    equipped: { avatar: 'default', frame: 'none', nickColor: 'default' },
     records: { snake: 0, bit: 0, tetris: 0, '2048': 0, memory: 0 },
     nicknameChanges: 0,
     lastDaily: null
@@ -4335,7 +4304,6 @@ eyframes anim-drift-kf {
   } else {
     if (!profile.equipped) profile.equipped = {};
     if (!profile.equipped.nickColor) profile.equipped.nickColor = 'default';
-    if (!profile.equipped.background) profile.equipped.background = 'none';
     if (!profile.records) profile.records = {};
     if (!profile.records.tetris) profile.records.tetris = 0;
     if (!profile.records['2048']) profile.records['2048'] = 0;
@@ -4401,12 +4369,8 @@ if (nickColor === 'rainbow') {
       preview.classList.add('frame-' + frame.id);
     }
     if (av.anim) preview.classList.add(av.anim);
-    // Фон отображается позади аватара, но внутри рамки: рисуется как фон
-    // самого элемента, поэтому эмодзи (текстовое содержимое) всегда поверх.
-    const bg = BACKGROUNDS.find(b => b.id === profile.equipped.background);
-    preview.style.background = (bg && bg.id !== 'none') ? bg.css : '';
+    if (window.pbEmojify) window.pbEmojify(preview);
   }
-
 
   // ===== Тултип с названием предмета для телефонов =====
   // На ПК название видно по наведению (title=...). На телефоне hover
@@ -4507,18 +4471,8 @@ if (nickColor === 'rainbow') {
       });
     }
 
-    const bgg = document.getElementById('background-list');
-    if (bgg) {
-      bgg.innerHTML = '';
-      BACKGROUNDS.forEach(bgItem => {
-        const div = document.createElement('div');
-        const owned = profile.inventory.includes(bgItem.id);
-        div.className = 'shop-item background-item' + (owned ? ' owned' : '');
-        div.innerHTML = `<div class="color-swatch" style="background:${bgItem.css}"></div><div class="item-price">${owned ? '✔ Куплено' : '💰' + bgItem.price}</div>`;
-        bindShopItemTap(div, bgItem.name + ' (' + bgItem.price + '💰)', () => buy('background', bgItem));
-        bgg.appendChild(div);
-      });
-    }
+    // Единый вид эмодзи (Twemoji) во всех разделах магазина сразу после отрисовки
+    if (window.pbEmojify) window.pbEmojify(document.getElementById('shop-modal'));
   }
 
   function buy(type, item) {
@@ -4530,7 +4484,6 @@ if (nickColor === 'rainbow') {
       if (type === 'avatar') profile.equipped.avatar = item.id;
       else if (type === 'frame') profile.equipped.frame = item.id;
       else if (type === 'nickColor') profile.equipped.nickColor = item.color;
-      else if (type === 'background') profile.equipped.background = item.id;
       else if (type === 'emoji') { alert('Этот смайлик уже куплен — он доступен в чате.'); return; }
       save(); updateUI();
       alert('Экипировано: ' + item.name);
@@ -4542,7 +4495,6 @@ if (nickColor === 'rainbow') {
     if (type === 'avatar') profile.equipped.avatar = item.id;
     else if (type === 'frame') profile.equipped.frame = item.id;
     else if (type === 'nickColor') profile.equipped.nickColor = item.color;
-    else if (type === 'background') profile.equipped.background = item.id;
     save(); updateUI(); populateShop();
     if (type === 'emoji') {
       alert('Куплено: ' + item.name + '. Теперь доступен в чате 😊');
@@ -4607,7 +4559,6 @@ if (nickColor === 'rainbow') {
   window.AVATARS = AVATARS;
 window.FRAMES = FRAMES;
 window.SHOP_EMOJIS = EMOJIS_SHOP;
-window.BACKGROUNDS = BACKGROUNDS;
   window.PixelProfile = { addCoins: window.addCoins, updateRecord: window.updateRecord };
 })();
 </script>
@@ -4618,9 +4569,26 @@ window.BACKGROUNDS = BACKGROUNDS;
 
 
 
-
 <!-- ЖИВОЙ ЧАТ (Firebase) – исправленный, с профилем, звуком, упоминаниями, эмодзи, жалобами, игнорированием, антиспамом, банами -->
 <style>
+  #fire-chat-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 0 12px;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(231,76,60,0.5);
+    height: 30px;
+    line-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  #fire-chat-btn .fire-chat-icon { display: inline-block; }
+  #fire-chat-btn .fire-chat-label { display: inline-block; margin-left: 5px; }
   #fire-chat-modal {
     display: none;
     position: fixed;
@@ -4673,7 +4641,9 @@ window.BACKGROUNDS = BACKGROUNDS;
     margin-left: 10px;
   }
   .fire-msg .favaframe {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     margin-right: 5px;
     font-size: 16px;
   }
@@ -4738,7 +4708,6 @@ window.BACKGROUNDS = BACKGROUNDS;
     display: flex;
   }
 </style>
-
 
 <!-- Кнопка чата перенесена в #top-toolbar-left в начале body -->
 
@@ -4828,13 +4797,7 @@ window.BACKGROUNDS = BACKGROUNDS;
   const emojiPanel = document.getElementById('emoji-panel');
 
   // ===== ЗВУК =====
-  // Мягкий двухтональный «поп» для новых сообщений (через общий звуковой
-  // движок сайта). Если движок недоступен — старый писк как запасной вариант.
   function playBeep() {
-    if (window.pbSound && window.pbSound.message) {
-      window.pbSound.message();
-      return;
-    }
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -4895,6 +4858,7 @@ window.BACKGROUNDS = BACKGROUNDS;
         if (item) addEmojiButton(item.emoji);
       });
     }
+    if (window.pbEmojify) window.pbEmojify(emojiPanel);
   }
   function addEmojiButton(emoji) {
     const btn = document.createElement('button');
@@ -4987,7 +4951,6 @@ window.BACKGROUNDS = BACKGROUNDS;
       nickname: profile.nickname,
       avatar: profile.equipped.avatar || 'default',
       frame: profile.equipped.frame || 'none',
-      background: profile.equipped.background || 'none',
       color: profile.equipped.nickColor || '#ffffff',
       text: text,
       timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -5044,14 +5007,6 @@ function displayMessage(msg) {
     }
   }
 
-  // Фон аватара — позади аватара, но внутри рамки (фон элемента рисуется
-  // под текстовым содержимым, поэтому аватар всегда поверх).
-  let avatarBgStyle = '';
-  if (typeof window.BACKGROUNDS !== 'undefined') {
-    const bg = window.BACKGROUNDS.find(b => b.id === msg.background);
-    if (bg && bg.id !== 'none') avatarBgStyle = `style="background:${bg.css}"`;
-  }
-
   // Цвет ника
   const nickColor = msg.color || '#ffffff';
   let nickClass = 'fnick';
@@ -5085,19 +5040,20 @@ function displayMessage(msg) {
 
   // Контейнер для аватара с внутренним span для эмодзи
   div.innerHTML = `
-    <span class="favaframe ${frameClass}" ${avatarBgStyle}>
+    <span class="favaframe ${frameClass}">
       <span class="emoji${avatarAnim ? ' ' + avatarAnim : ''}">${avatarEmoji}</span>
     </span>
     <span class="${nickClass}" ${colorStyle}>${escapeHtml(msg.nickname)}</span>
     <span class="ftime">${time}</span>
     ${textHtml}
     <div class="msg-actions">
-      <button data-action="report" data-key="${msg.key}" title="Пожаловаться на сообщение (после 3 жалоб оно будет удалено)">⚠️</button>
-      <button data-action="ignore" data-uid="${msg.uid}" title="Заблокировать пользователя: скрыть все его сообщения у себя в чате">🚫</button>
+      <button data-action="report" data-key="${msg.key}">⚠️</button>
+      <button data-action="ignore" data-uid="${msg.uid}">🚫</button>
     </div>
   `;
   messagesDiv.appendChild(div);
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  if (window.pbEmojify) window.pbEmojify(div);
 }
   
 
