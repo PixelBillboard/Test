@@ -463,7 +463,7 @@ window.redraw = redraw;
     align-items: center;
     max-width: calc(100vw - 200px); /* оставляем место справа под часы/дату */
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }
@@ -533,7 +533,7 @@ window.redraw = redraw;
     #chat-time-pill { top: 8px; right: 8px; }
     .msk-clock-widget { font-size: 7px; padding: 2px 5px; }
   }
-  #easter-input-container { display: flex; align-items: center; background: rgba(0,0,0,0.7); border-radius: 20px; padding: 5px 10px; backdrop-filter: blur(5px); box-shadow: 0 0 10px rgba(0,255,0,0.3); flex-shrink: 0; }
+  #easter-input-container { display: flex; align-items: center; background: rgba(0,0,0,0.7); border-radius: 20px; padding: 5px 10px; backdrop-filter: blur(5px); border: 2px solid #1b5e20; box-shadow: 0 0 4px rgba(27,94,32,0.5); flex-shrink: 0; }
   #easter-input-container .icon { font-size: 18px; margin-right: 5px; opacity: 0.8; }
   #easter-input { background: transparent; border: none; color: #0f0; font-family: monospace; font-size: 14px; width: 120px; outline: none; }
   #easter-input::placeholder { color: rgba(0,255,0,0.5); }
@@ -3308,7 +3308,8 @@ applyWeatherByTime();
     border-radius: 20px;
     padding: 0 10px;
     backdrop-filter: blur(5px);
-    box-shadow: 0 0 10px rgba(0,255,0,0.3);
+    border: 2px solid #1b5e20;
+    box-shadow: 0 0 4px rgba(27,94,32,0.5);
     height: 34px;
     flex-shrink: 0;
   }
@@ -3403,7 +3404,7 @@ applyWeatherByTime();
   /* ===== ДЛЯ ОЧЕНЬ МАЛЕНЬКИХ ЭКРАНОВ (≤ 420px) ===== */
   @media (max-width: 420px) {
     #top-toolbar-left { top: 8px; left: 8px; max-width: calc(100vw - 115px); }
-    #easter-input-container { height: 24px; padding: 0 4px; }
+    #easter-input-container { height: 24px; padding: 0 4px; border-width: 1.5px; }
     #easter-input { width: 40px; font-size: 10px; }
     #easter-input-container .icon { font-size: 12px; }
     #profile-btn, #shop-btn, #help-btn {
@@ -3594,6 +3595,12 @@ applyWeatherByTime();
   }
   .anim-laser { display: inline-block; animation: anim-laser-kf 1s ease-in-out infinite; }
 
+  @keyframes anim-laser-green-kf {
+    0%, 100% { filter: drop-shadow(0 0 2px #00ff33); }
+    50% { filter: drop-shadow(0 0 10px #11ff44) drop-shadow(0 0 16px #00ff33); }
+  }
+  .anim-laser-green { display: inline-block; animation: anim-laser-green-kf 1s ease-in-out infinite; }
+
   @keyframes anim-flame-kf {
     0%, 100% { transform: scale(1); filter: drop-shadow(0 0 4px orange); }
     50% { transform: scale(1.15); filter: drop-shadow(0 0 12px #ff5500); }
@@ -3612,35 +3619,43 @@ applyWeatherByTime();
   @keyframes anim-vanish-kf { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
   .anim-vanish { display: inline-block; animation: anim-vanish-kf 1.6s ease-in-out infinite; }
 
-  /* Тень-ниндзя — периодически пропадает в облаке дыма и появляется снова.
-     Дым клубится прямо из центра (там, где стоит ниндзя), а не сбоку. */
-  @keyframes anim-ninjasmoke-kf {
-    0%, 55% { opacity: 1; transform: scale(1); }
-    72% { opacity: 0.2; transform: scale(0.85); }
-    79%, 85% { opacity: 0; transform: scale(0.7); }
-    92% { opacity: 1; transform: scale(1.08); }
-    100% { opacity: 1; transform: scale(1); }
+  /* Тролль Крушила — приседает и с размаху бьёт кулаком/ногой вниз,
+     а из-под него расходится ударная волна (расширяющееся кольцо). */
+  @keyframes anim-smash-kf {
+    0%, 60% { transform: translateY(0) scaleY(1); }
+    68% { transform: translateY(-9px) scaleY(1.08); }
+    76% { transform: translateY(2px) scaleY(0.76); }
+    84% { transform: translateY(-2px) scaleY(1.05); }
+    92%, 100% { transform: translateY(0) scaleY(1); }
   }
-  .anim-ninjasmoke { display: inline-block; position: relative; animation: anim-ninjasmoke-kf 3.4s ease-in-out infinite; }
-  .anim-ninjasmoke::before, .anim-ninjasmoke::after {
-    content: '💨';
+  .anim-smash { display: inline-block; position: relative; animation: anim-smash-kf 2.6s ease-in-out infinite; transform-origin: bottom center; }
+  .anim-smash::after {
+    content: '';
     position: absolute;
-    left: 50%; top: 50%;
-    font-size: 1em;
-    opacity: 0;
-    filter: grayscale(0.55) brightness(1.15) blur(0.3px);
+    left: 50%; bottom: -1px;
+    width: 0; height: 4px;
+    border-radius: 50%;
+    border: 2px solid rgba(190,150,90,0);
+    transform: translateX(-50%);
     pointer-events: none;
     z-index: 4;
-    animation: anim-ninjasmoke-puff-kf 3.4s ease-in-out infinite;
+    animation: anim-smash-ring-kf 2.6s ease-in-out infinite;
   }
-  .anim-ninjasmoke::before { animation-delay: 0s; }
-  .anim-ninjasmoke::after { animation-delay: 0.18s; font-size: 0.85em; }
-  @keyframes anim-ninjasmoke-puff-kf {
-    0%, 46% { opacity: 0; transform: translate(-50%, -50%) scale(0.15) rotate(0deg); }
-    60% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.15) rotate(20deg); }
-    75% { opacity: 0.65; transform: translate(-50%, -50%) scale(1.75) rotate(-15deg); }
-    90%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(2.3) rotate(30deg); }
+  @keyframes anim-smash-ring-kf {
+    0%, 74% { width: 0; height: 4px; opacity: 0; border-color: rgba(190,150,90,0); }
+    78% { width: 6px; height: 4px; opacity: 0.9; border-color: rgba(190,150,90,0.9); }
+    90% { width: 36px; height: 10px; opacity: 0; border-color: rgba(190,150,90,0); }
+    100% { width: 36px; height: 10px; opacity: 0; border-color: rgba(190,150,90,0); }
   }
+
+  /* Комета Вэйл — один объект, мягко "падает" вверх-вниз, но не покидает
+     центр рамки (лёгкое движение + затухание создают ощущение падения). */
+  @keyframes anim-streak-kf {
+    0% { transform: translateY(-30%) scale(0.88) rotate(-16deg); opacity: 0.55; }
+    50% { transform: translateY(0) scale(1) rotate(-16deg); opacity: 1; }
+    100% { transform: translateY(30%) scale(0.88) rotate(-16deg); opacity: 0.55; }
+  }
+  .anim-streak { display: inline-block; animation: anim-streak-kf 1.6s ease-in-out infinite alternate; }
 
   @keyframes anim-pulse-red-kf {
     0%, 100% { filter: drop-shadow(0 0 3px #ff0033); transform: scale(1); }
@@ -3835,7 +3850,7 @@ eyframes anim-drift-kf {
   .shop-item:has(.anim-hohoho),
   .shop-item:has(.anim-swim),
   .shop-item:has(.anim-pumpkinbite),
-  .shop-item:has(.anim-ninjasmoke) {
+  .shop-item:has(.anim-smash) {
     overflow: visible;
   }
 
@@ -3942,6 +3957,11 @@ eyframes anim-drift-kf {
   box-sizing: border-box;
   overflow: hidden;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1;
 }
 
 /* Внутренний контейнер для эмодзи (создаётся в JS) */
@@ -4148,11 +4168,11 @@ eyframes anim-drift-kf {
 
     // Анимированные аватары — идут после всех остальных, 250 монет каждый.
     // У каждого своя уникальная анимация/эмоция.
-    { id: 'anim_cyberagent', emoji: '🦾', name: 'Кибер-агент', price: 250, anim: 'anim-laser' },
+    { id: 'anim_cyberagent', emoji: '🦾', name: 'Кибер-рука', price: 250, anim: 'anim-laser-green' },
     { id: 'anim_ufo', emoji: '🛸', name: 'НЛО Зорг', price: 250, anim: 'anim-spin' },
     { id: 'anim_firedemon', emoji: '👹', name: 'Огняр', price: 250, anim: 'anim-flame' },
     { id: 'anim_icespirit', emoji: '🧊', name: 'Кубик льда', price: 250, anim: 'anim-shiver' },
-    { id: 'anim_ninja', emoji: '👤', name: 'Тень-ниндзя', price: 250, anim: 'anim-ninjasmoke' },
+    { id: 'anim_troll', emoji: '🧌', name: 'Тролль Крушила', price: 250, anim: 'anim-smash' },
     { id: 'anim_countvamp', emoji: '🧛', name: 'Граф Вамп', price: 250, anim: 'anim-pulse-red' },
     { id: 'anim_discophantom', emoji: '🕺', name: 'Диско-фантом', price: 250, anim: 'anim-dance' },
     { id: 'anim_zombiebob', emoji: '🧟', name: 'Зомби Боб', price: 250, anim: 'anim-wobble' },
@@ -4162,7 +4182,7 @@ eyframes anim-drift-kf {
     { id: 'anim_dragonignis', emoji: '🐉', name: 'Дракон Игнис', price: 250, anim: 'anim-ember' },
     { id: 'anim_orbitmage', emoji: '🧚', name: 'Фея', price: 250, anim: 'anim-orbit' },
     { id: 'anim_clownhop', emoji: '🤡', name: 'Прыг-клоун', price: 250, anim: 'anim-bounce' },
-    { id: 'anim_wanderghost', emoji: '👻', name: 'Дух-скиталец', price: 250, anim: 'anim-drift' },
+    { id: 'anim_comet', emoji: '☄️', name: 'Комета Вэйл', price: 250, anim: 'anim-streak' },
     { id: 'anim_zelin', emoji: '👽', name: 'Зелин с Нибиру', price: 250, anim: 'anim-pulse-green' },
     { id: 'anim_captainstill', emoji: '🏴‍☠️', name: 'Капитан Штиль', price: 250, anim: 'anim-sway' },
     { id: 'anim_thundergod', emoji: '⚡', name: 'Молния', price: 250, anim: 'anim-lightning' },
