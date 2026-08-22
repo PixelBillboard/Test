@@ -1719,14 +1719,15 @@ addEasterEgg('tetris', 'TETRIS', function() {
     }
   }
 
-  function moveDown() { if (isValid(currentX, currentY+1, currentPiece)) currentY++; else placePiece(); draw(); }
-  function moveLeft() { if (isValid(currentX-1, currentY, currentPiece)) { currentX--; draw(); } }
-  function moveRight() { if (isValid(currentX+1, currentY, currentPiece)) { currentX++; draw(); } }
+  function moveDown() { if (gameOver) return; if (isValid(currentX, currentY+1, currentPiece)) currentY++; else placePiece(); draw(); }
+  function moveLeft() { if (gameOver) return; if (isValid(currentX-1, currentY, currentPiece)) { currentX--; draw(); } }
+  function moveRight() { if (gameOver) return; if (isValid(currentX+1, currentY, currentPiece)) { currentX++; draw(); } }
   function rotate() {
+    if (gameOver) return;
     const rot = currentPiece[0].map((_, i) => currentPiece.map(row => row[i]).reverse());
     if (isValid(currentX, currentY, rot)) { currentPiece = rot; draw(); }
   }
-  function hardDrop() { while (isValid(currentX, currentY+1, currentPiece)) currentY++; placePiece(); draw(); }
+  function hardDrop() { if (gameOver) return; while (isValid(currentX, currentY+1, currentPiece)) currentY++; placePiece(); draw(); }
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -4172,7 +4173,7 @@ eyframes anim-drift-kf {
     { id: 'anim_ufo', emoji: '🛸', name: 'НЛО Зорг', price: 250, anim: 'anim-spin' },
     { id: 'anim_firedemon', emoji: '👹', name: 'Огняр', price: 250, anim: 'anim-flame' },
     { id: 'anim_icespirit', emoji: '🧊', name: 'Кубик льда', price: 250, anim: 'anim-shiver' },
-    { id: 'anim_troll', emoji: '🧌', name: 'Тролль Крушила', price: 250, anim: 'anim-smash' },
+    { id: 'anim_troll', emoji: '🗿', name: 'Моаи', price: 250, anim: 'anim-smash' },
     { id: 'anim_countvamp', emoji: '🧛', name: 'Граф Вамп', price: 250, anim: 'anim-pulse-red' },
     { id: 'anim_discophantom', emoji: '🕺', name: 'Диско-фантом', price: 250, anim: 'anim-dance' },
     { id: 'anim_zombiebob', emoji: '🧟', name: 'Зомби Боб', price: 250, anim: 'anim-wobble' },
