@@ -2984,6 +2984,1380 @@ addEasterEgg('up', 'UP', function() {
 
   requestAnimationFrame(animate);
 });
+
+  // ============================================================
+  // dexter – нож режет сайт, из раны капает кровь, попадает между
+  // двух предметных стёкол (как трофеи Декстера Моргана)
+  // ============================================================
+  addEasterEgg('dexter', 'DEXTER', function() {
+    const canvas = document.createElement('canvas');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+
+    // Линия разреза — слегка неровная, идёт по диагонали через центр сайта
+    const cutLen = 340;
+    const cutAngle = -18 * Math.PI / 180;
+    const cutStart = { x: cx - Math.cos(cutAngle) * cutLen / 2, y: cy - Math.sin(cutAngle) * cutLen / 2 };
+    const cutEnd = { x: cx + Math.cos(cutAngle) * cutLen / 2, y: cy + Math.sin(cutAngle) * cutLen / 2 };
+    // Точки-неровности вдоль разреза (для "рваного" края раны)
+    const jitterSeed = [];
+    for (let i = 0; i <= 20; i++) jitterSeed.push((Math.random() - 0.5) * 6);
+
+    function pointOnCut(t) {
+      return { x: cutStart.x + (cutEnd.x - cutStart.x) * t, y: cutStart.y + (cutEnd.y - cutStart.y) * t };
+    }
+
+    function drawWound(revealT) {
+      // revealT 0..1 — насколько далеко вдоль разреза уже раскрылась рана
+      // (рана "тянется" следом за ножом, а не появляется сразу по всей длине)
+      if (revealT <= 0) return;
+      const steps = 20;
+      const activeSteps = Math.max(1, Math.round(revealT * steps));
+      const upper = [], lower = [];
+      const perpX = -Math.sin(cutAngle), perpY = Math.cos(cutAngle);
+      const maxGap = 8;
+      for (let i = 0; i <= activeSteps; i++) {
+        const t = i / steps;
+        const p = pointOnCut(t);
+        // у самого "хвоста" (там, где рана только что раскрылась) сводим её на нет —
+        // получается заострённый, недавно прорезанный кончик
+        const tipTaper = i >= activeSteps - 2 ? Math.max(0, (activeSteps - i) / 2) : 1;
+        const gap = maxGap * tipTaper;
+        const j = jitterSeed[i] * tipTaper;
+        upper.push({ x: p.x + perpX * gap + perpX * j, y: p.y + perpY * gap + perpY * j });
+        lower.push({ x: p.x - perpX * gap - perpX * j, y: p.y - perpY * gap - perpY * j });
+      }
+      // Тёмная глубина раны
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(upper[0].x, upper[0].y);
+      for (const p of upper) ctx.lineTo(p.x, p.y);
+      for (let i = lower.length - 1; i >= 0; i--) ctx.lineTo(lower[i].x, lower[i].y);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(cutStart.x, cutStart.y, cutEnd.x, cutEnd.y);
+      grad.addColorStop(0, 'rgba(40,0,0,0.85)');
+      grad.addColorStop(0.5, 'rgba(70,0,0,0.9)');
+      grad.addColorStop(1, 'rgba(40,0,0,0.85)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      // Яркие кровавые края раны
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(200,20,20,0.8)';
+      ctx.beginPath();
+      ctx.moveTo(upper[0].x, upper[0].y);
+      for (const p of upper) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(lower[0].x, lower[0].y);
+      for (const p of lower) ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawKnife(t, alpha) {
+      // t: 0..1 положение вдоль разреза; нож движется точно по линии реза,
+      // без смещения — рана появляется ровно там, где проходит кончик лезвия
+      const p = pointOnCut(t);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(cutAngle);
+      // тень
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 4;
+      // рукоять
+      ctx.fillStyle = '#2b1d14';
+      ctx.beginPath();
+      ctx.roundRect(-58, -8, 34, 16, 4);
+      ctx.fill();
+      // ограничитель
+      ctx.fillStyle = '#555';
+      ctx.fillRect(-24, -10, 5, 20);
+      // клинок с градиентом металла
+      const bladeGrad = ctx.createLinearGradient(0, -9, 0, 9);
+      bladeGrad.addColorStop(0, '#e8ecef');
+      bladeGrad.addColorStop(0.45, '#ffffff');
+      bladeGrad.addColorStop(0.55, '#aeb6bd');
+      bladeGrad.addColorStop(1, '#7c848b');
+      ctx.fillStyle = bladeGrad;
+      ctx.beginPath();
+      ctx.moveTo(-19, -7);
+      ctx.lineTo(55, -2);
+      ctx.lineTo(68, 0);
+      ctx.lineTo(55, 3);
+      ctx.lineTo(-19, 7);
+      ctx.closePath();
+      ctx.fill();
+      // блик на лезвии
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-14, -1);
+      ctx.lineTo(58, -0.5);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Капля крови, стекающая из раны
+    let drop = null;
+    function spawnDrop() {
+      const t = 0.5 + (Math.random() - 0.5) * 0.3;
+      const p = pointOnCut(t);
+      drop = { x: p.x, y: p.y, vy: 0, born: null, landed: false };
+    }
+
+    // Стёкла-трофей
+    const slideW = 90, slideH = 34;
+    const slideCX = cx, slideCY = cy + 170;
+
+    function drawGlassSlide(offsetY, tilt) {
+      ctx.save();
+      ctx.translate(slideCX, slideCY + offsetY);
+      ctx.rotate(tilt);
+      ctx.fillStyle = 'rgba(200,225,235,0.28)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(-slideW / 2, -slideH / 2, slideW, slideH, 3);
+      ctx.fill();
+      ctx.stroke();
+      // блик стекла
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath();
+      ctx.moveTo(-slideW / 2 + 8, -slideH / 2 + 5);
+      ctx.lineTo(-slideW / 2 + 20, slideH / 2 - 5);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawBloodSmear(squeeze) {
+      // squeeze 0..1 — капля растекается в тонкое пятно между стёклами
+      ctx.save();
+      ctx.translate(slideCX, slideCY);
+      const rx = 6 + squeeze * 16;
+      const ry = 6 - squeeze * 3.5;
+      ctx.fillStyle = '#a10f0f';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, Math.max(2.5, ry), 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    let startTime = null;
+    const total = 5000;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Фаза 1 (0–300): нож появляется у начала разреза
+      // Фаза 2 (300–1300): нож проходит вдоль разреза
+      // Фаза 3 (следует сразу за ножом, с отставанием ~120мс): рана раскрывается по мере прохода лезвия
+      // Фаза 4 (1500): нижнее стекло уже лежит на месте — заранее, до падения капли
+      // Фаза 5 (1900–~2600): капля крови стекает и падает на нижнее стекло
+      // Фаза 6 (после приземления капли): верхнее стекло опускается и закрывает её
+      // Фаза 7 (4500–5000): всё плавно растворяется
+
+      const knifeAppear = clamp01(elapsed / 300);
+      const slideProgress = clamp01((elapsed - 300) / 1000);
+      const woundLag = 120; // рана раскрывается сразу вслед за ножом, не опережая его
+      const woundReveal = easeInOutCubic(clamp01((elapsed - 300 - woundLag) / 1000));
+      const knifeAlpha = elapsed < 1300
+        ? knifeAppear
+        : clamp01(1 - (elapsed - 1300) / 400);
+
+      if (elapsed < 1700) {
+        drawWound(woundReveal);
+        const t = easeInOutCubic(clamp01(slideProgress));
+        drawKnife(0.08 + t * 0.84, knifeAlpha);
+      } else {
+        drawWound(1);
+      }
+
+      // Нижнее стекло появляется заранее и уже лежит на месте к моменту падения капли
+      const bottomSlideIn = easeOutCubic(clamp01((elapsed - 1500) / 500));
+      if (bottomSlideIn > 0) {
+        drawGlassSlide(18 + (1 - bottomSlideIn) * 20, 0.03);
+      }
+
+      if (elapsed >= 1900 && elapsed < 4600) {
+        if (!drop) spawnDrop();
+        if (drop && !drop.landed) {
+          if (drop.born === null) drop.born = elapsed;
+          const dt = (elapsed - drop.born) / 1000;
+          drop.vy += 900 * dt * 0.016;
+          drop.y += drop.vy * 0.9;
+          const stretch = clamp01(drop.vy / 12);
+          if (drop.y >= slideCY - 2) {
+            drop.landed = true;
+            drop.landTime = elapsed;
+          } else {
+            ctx.save();
+            ctx.fillStyle = '#c31414';
+            ctx.beginPath();
+            ctx.ellipse(drop.x, drop.y, 4, 5 + stretch * 4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(255,255,255,0.35)';
+            ctx.ellipse(drop.x - 1.2, drop.y - 3, 1.2, 1.8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      }
+
+      // Капля приземлилась на нижнее стекло — теперь сверху опускается второе и закрывает её
+      if (drop && drop.landed) {
+        const sinceLand = elapsed - drop.landTime;
+        const topDelay = 250;
+        const topDur = 700;
+        const topProgress = easeOutCubic(clamp01((sinceLand - topDelay) / topDur));
+        drawBloodSmear(topProgress);
+        if (sinceLand >= topDelay) {
+          const topOffset = -18 + (1 - topProgress) * 90;
+          drawGlassSlide(topOffset, -0.03);
+        }
+      }
+
+      if (elapsed < total) {
+        if (elapsed > total - 500) {
+          canvas.style.opacity = String(clamp01((total - elapsed) / 500));
+        }
+        requestAnimationFrame(animate);
+      } else {
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
+  });
+
+  // ============================================================
+  // sharingan – один крупный глаз Шарингана в центре сайта, весь сайт
+  // "плывёт" под гендзюцу, затем плавно восстанавливается
+  // ============================================================
+  addEasterEgg('sharingan', 'SHARINGAN', function() {
+    const canvas = document.createElement('canvas');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const eyeR = Math.min(130, canvas.width * 0.16);
+
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+    const easeInOutSine = t => -(Math.cos(Math.PI * t) - 1) / 2;
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+
+    function drawTomoe(radius, angle) {
+      // "запятая" шарингана: голова (кружок) + хвост, изогнутый к центру
+      const hx = Math.cos(angle) * radius;
+      const hy = Math.sin(angle) * radius;
+      ctx.save();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(hx, hy, radius * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(hx, hy);
+      const midAngle = angle - 0.9;
+      const mx = Math.cos(midAngle) * radius * 0.55;
+      const my = Math.sin(midAngle) * radius * 0.55;
+      ctx.quadraticCurveTo(mx, my, 0, 0);
+      ctx.quadraticCurveTo(mx * 1.15, my * 1.15, hx, hy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawSharinganEye(x, y, radius, openness, tomoeAngle, glow) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(1, Math.max(0.02, openness));
+
+      // внешнее свечение
+      if (glow > 0) {
+        ctx.save();
+        ctx.globalAlpha = glow * 0.6;
+        const g = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius * 1.8);
+        g.addColorStop(0, 'rgba(200,0,0,0.55)');
+        g.addColorStop(1, 'rgba(200,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // чёрное веко/обводка
+      ctx.fillStyle = '#0a0a0a';
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // радужка — красный градиент
+      const irisR = radius * 0.86;
+      const irisGrad = ctx.createRadialGradient(0, 0, irisR * 0.1, 0, 0, irisR);
+      irisGrad.addColorStop(0, '#c60b0b');
+      irisGrad.addColorStop(0.75, '#8f0000');
+      irisGrad.addColorStop(1, '#5c0000');
+      ctx.fillStyle = irisGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, irisR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // три томоэ
+      for (let i = 0; i < 3; i++) {
+        drawTomoe(irisR * 0.6, tomoeAngle + i * (Math.PI * 2 / 3));
+      }
+
+      // зрачок
+      ctx.fillStyle = '#050505';
+      ctx.beginPath();
+      ctx.arc(0, 0, irisR * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+
+      // блик
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath();
+      ctx.arc(-irisR * 0.32, -irisR * 0.32, irisR * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    let startTime = null;
+    const total = 5000;
+    const openIn = 700;      // открытие глаз
+    const closeStart = 4300; // начало закрытия
+    const wobbleFadeStart = 3600; // когда амплитуда "плавания" начинает падать
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      const t = elapsed / 1000;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // --- глаза ---
+      let openness;
+      if (elapsed < openIn) openness = easeOutCubic(elapsed / openIn);
+      else if (elapsed < closeStart) openness = 1;
+      else openness = 1 - easeOutCubic(clamp01((elapsed - closeStart) / (total - closeStart)));
+
+      const glow = elapsed < openIn
+        ? clamp01(elapsed / openIn)
+        : (elapsed < closeStart ? 1 : Math.max(0, 1 - (elapsed - closeStart) / (total - closeStart)));
+
+      const tomoeAngle = t * 1.3; // медленное вращение томоэ
+
+      drawSharinganEye(cx, cy, eyeR, openness, tomoeAngle, glow);
+
+      // --- "поплывший" сайт: комбинация нескольких синусоид для органичного покачивания ---
+      let wobbleAmp = 1;
+      if (elapsed < openIn) wobbleAmp = clamp01(elapsed / openIn);
+      else if (elapsed >= wobbleFadeStart) wobbleAmp = Math.max(0, 1 - (elapsed - wobbleFadeStart) / (total - wobbleFadeStart));
+
+      const rot = (Math.sin(t * 1.7) * 1.6 + Math.sin(t * 3.1 + 1) * 0.8) * wobbleAmp;
+      const skx = (Math.sin(t * 2.3 + 0.5) * 2.2) * wobbleAmp;
+      const scl = 1 + (Math.sin(t * 1.9) * 0.015) * wobbleAmp;
+      const tx = Math.sin(t * 2.6) * 6 * wobbleAmp;
+      const ty = Math.cos(t * 2.1) * 4 * wobbleAmp;
+
+      document.body.style.transformOrigin = '50% 50%';
+      document.body.style.transform =
+        `translate(${tx}px, ${ty}px) rotate(${rot}deg) skewX(${skx}deg) scale(${scl})`;
+      document.body.style.filter = `blur(${0.6 * wobbleAmp}px) saturate(${1 + 0.35 * wobbleAmp})`;
+
+      // красная виньетка гендзюцу
+      if (wobbleAmp > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.25 * wobbleAmp;
+        const vg = ctx.createRadialGradient(cx, cy, canvas.height * 0.25, cx, cy, canvas.height * 0.75);
+        vg.addColorStop(0, 'rgba(120,0,0,0)');
+        vg.addColorStop(1, 'rgba(120,0,0,0.6)');
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+
+      if (elapsed < total) {
+        requestAnimationFrame(animate);
+      } else {
+        document.body.style.transform = '';
+        document.body.style.filter = '';
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
+  });
+
+  // ============================================================
+  // itachi – отсылка на Итачи Учиха: экран целиком чёрный (одна
+  // сплошная заливка, без деления на клетки), а вороны — настоящая
+  // стая, разлетающаяся из случайных точек экрана в разные стороны.
+  // Там, откуда улетела ворона, навсегда открывается просвет. 10 секунд.
+  // ============================================================
+  addEasterEgg('itachi', 'ITACHI', function() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+    const total = 10000;
+    const appearEnd = 400;
+    const departStart = 700;
+    const departWindow = 7600;
+    const forceClearAt = total - 500; // страховка: гарантированно открыть весь экран к финалу
+
+    // Постоянная чёрная маска — реально сплошная заливка на старте,
+    // без единого зазора. Вороны прогрызают в ней дыры на лету.
+    const mask = document.createElement('canvas');
+    mask.width = w; mask.height = h;
+    const mctx = mask.getContext('2d');
+    mctx.fillStyle = '#000';
+    mctx.fillRect(0, 0, w, h);
+
+    function punchHole(x, y, radius) {
+      mctx.save();
+      mctx.globalCompositeOperation = 'destination-out';
+      const g = mctx.createRadialGradient(x, y, 0, x, y, radius);
+      g.addColorStop(0, 'rgba(0,0,0,1)');
+      g.addColorStop(0.7, 'rgba(0,0,0,0.85)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      mctx.fillStyle = g;
+      mctx.beginPath();
+      mctx.arc(x, y, radius, 0, Math.PI * 2);
+      mctx.fill();
+      mctx.restore();
+    }
+
+    // Стая из случайных точек экрана — никакой сетки/клеток
+    const crowCount = Math.max(55, Math.min(130, Math.round((w * h) / 15000)));
+    const crows = [];
+    for (let i = 0; i < crowCount; i++) {
+      crows.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        angle: Math.random() * Math.PI * 2,
+        speed: 210 + Math.random() * 300,
+        wobble: 0.3 + Math.random() * 0.9,
+        wobbleFreq: 1 + Math.random() * 2.2,
+        size: 46 + Math.random() * 34,
+        departTime: departStart + Math.random() * departWindow,
+        wingPhase: Math.random() * Math.PI * 2,
+        holePunched: false
+      });
+    }
+
+    // Пиксель-арт ворон (по образцу референса): собран из отдельных
+    // квадратов-"пикселей", как честная пиксельная графика, а не векторный
+    // силуэт. Строится один раз и переиспользуется для всей стаи.
+    const CROW_BLACK = '#0a0a0f';
+    const CROW_BLACK_SOFT = '#241c33';
+    const CROW_INDIGO = '#3a2a5c';
+    const CROW_ORANGE = '#ff9a2e';
+    const CROW_DARK = '#161616';
+    const CROW_DARKER = '#0d0d0d';
+    const CROW_LEG_BACK = '#050508';
+
+    function buildCrowSprite() {
+      const body = new Map();
+      const wing = new Map();
+      function paint(map, gx, gy, gw, gh, color) {
+        for (let y = gy; y < gy + gh; y++) for (let x = gx; x < gx + gw; x++) map.set(x + ',' + y, color);
+      }
+      // крыло (анимируется отдельно от тела — взмахивает)
+      paint(wing, 12, 2, 7, 5, CROW_INDIGO);
+      paint(wing, 10, 5, 4, 3, CROW_INDIGO);
+      paint(wing, 16, 1, 5, 2, CROW_BLACK);
+      paint(wing, 19, 0, 3, 2, CROW_BLACK);
+      // тело, хвост, голова, клюв, лапки — неподвижная часть
+      paint(body, 6, 7, 12, 5, CROW_BLACK);
+      paint(body, 8, 7, 8, 1, CROW_BLACK_SOFT);
+      paint(body, 3, 8, 4, 2, CROW_BLACK);
+      paint(body, 1, 7, 3, 1, CROW_BLACK);
+      paint(body, 1, 10, 3, 1, CROW_BLACK);
+      paint(body, 17, 8, 4, 4, CROW_BLACK);
+      paint(body, 19, 9, 1, 1, CROW_ORANGE);
+      paint(body, 20, 10, 3, 1, CROW_DARK);
+      paint(body, 22, 11, 2, 1, CROW_DARKER);
+      paint(body, 13, 12, 1, 3, CROW_LEG_BACK);
+      paint(body, 12, 15, 3, 1, CROW_LEG_BACK);
+      paint(body, 10, 12, 1, 3, CROW_BLACK);
+      paint(body, 9, 15, 3, 1, CROW_BLACK);
+      paint(body, 9, 16, 1, 1, CROW_BLACK);
+      paint(body, 11, 16, 1, 1, CROW_BLACK);
+
+      function flatten(map) {
+        const arr = [];
+        for (const [key, color] of map) {
+          const [gx, gy] = key.split(',').map(Number);
+          arr.push({ gx, gy, color });
+        }
+        return arr;
+      }
+      return { bodyCells: flatten(body), wingCells: flatten(wing) };
+    }
+    const CROW_SPRITE = buildCrowSprite();
+    const CROW_PIVOT_X = 12.5, CROW_PIVOT_Y = 8.5;   // примерный центр тела — точка вращения
+    const CROW_WING_BASE_X = 13, CROW_WING_BASE_Y = 6; // основание крыла — точка взмаха
+    const CROW_GRID_SPAN = 23; // ширина спрайта в "пикселях" для масштабирования под нужный размер
+
+    // Красивый, узнаваемый ворон — теперь честный пиксель-арт вместо
+    // векторного силуэта: чётко видны клюв, глаз, крылья с фиолетовым
+    // отливом (как на референсе) и лапки с коготками
+    function drawCrow(x, y, angle, wingPhase, size, alpha) {
+      const cell = size / CROW_GRID_SPAN;
+      const flap = Math.sin(wingPhase);
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      // неподвижная часть: тело, хвост, голова, клюв, лапки
+      for (const c of CROW_SPRITE.bodyCells) {
+        const lx = (c.gx - CROW_PIVOT_X) * cell;
+        const ly = (c.gy - CROW_PIVOT_Y) * cell;
+        ctx.fillStyle = c.color;
+        ctx.fillRect(lx, ly, cell + 0.6, cell + 0.6);
+      }
+
+      // крыло — взмахивает вокруг своего основания
+      const wingBaseLX = (CROW_WING_BASE_X - CROW_PIVOT_X) * cell;
+      const wingBaseLY = (CROW_WING_BASE_Y - CROW_PIVOT_Y) * cell;
+      ctx.save();
+      ctx.translate(wingBaseLX, wingBaseLY);
+      ctx.rotate(-flap * 0.55 - 0.15);
+      ctx.translate(-wingBaseLX, -wingBaseLY);
+      for (const c of CROW_SPRITE.wingCells) {
+        const lx = (c.gx - CROW_PIVOT_X) * cell;
+        const ly = (c.gy - CROW_PIVOT_Y) * cell;
+        ctx.fillStyle = c.color;
+        ctx.fillRect(lx, ly, cell + 0.6, cell + 0.6);
+      }
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    let startTime = null;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      ctx.clearRect(0, 0, w, h);
+
+      if (elapsed >= forceClearAt) {
+        if (elapsed < total) {
+          if (elapsed > total - 300) canvas.style.opacity = String(clamp01((total - elapsed) / 300));
+          requestAnimationFrame(animate);
+        } else {
+          canvas.remove();
+        }
+        return;
+      }
+
+      const appearAlpha = easeOutCubic(clamp01(elapsed / appearEnd));
+
+      // сплошная маска — честный весь чёрный экран, без клеток
+      ctx.save();
+      ctx.globalAlpha = appearAlpha;
+      ctx.drawImage(mask, 0, 0);
+      ctx.restore();
+
+      for (const crow of crows) {
+        if (elapsed < crow.departTime) continue; // ещё часть общей тьмы — уже нарисована маской выше
+
+        if (!crow.holePunched) {
+          punchHole(crow.x, crow.y, crow.size * 2.4);
+          crow.holePunched = true;
+        }
+
+        const localT = elapsed - crow.departTime;
+        const dist = crow.speed * (localT / 1000);
+        const wob = Math.sin(localT / 1000 * crow.wobbleFreq) * crow.wobble * 16;
+        const dirX = Math.cos(crow.angle), dirY = Math.sin(crow.angle);
+        const perpX = -dirY, perpY = dirX;
+        const x = crow.x + dirX * dist + perpX * wob;
+        const y = crow.y + dirY * dist + perpY * wob;
+
+        if (x < -100 || x > w + 100 || y < -100 || y > h + 100) continue; // улетела совсем
+
+        const flyAngle = Math.atan2(dirY, dirX) + Math.sin(localT / 1000 * crow.wobbleFreq) * 0.15;
+        drawCrow(x, y, flyAngle, crow.wingPhase + localT * 0.012, crow.size, appearAlpha);
+      }
+
+      if (elapsed < total) {
+        if (elapsed > total - 300) {
+          canvas.style.opacity = String(clamp01((total - elapsed) / 300));
+        }
+        requestAnimationFrame(animate);
+      } else {
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
+  });
+
+  // ============================================================
+  // amaterasu – отсылка на Итачи Учиха: сначала по контуру занимаются
+  // кнопки сайта одна за другой, а затем настоящее пламя (тёплые
+  // чёрно-багрово-оранжевые тона, а не абстрактные шипы) медленно
+  // заползает на сайт сразу с четырёх сторон экрана и сливается
+  // в центре, полностью охватывая сайт. Не менее 10 секунд.
+  // ============================================================
+  addEasterEgg('amaterasu', 'AMATERASU', function() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+    const easeInCubic = t => t * t * t;
+    const easeInOutSine = t => -(Math.cos(Math.PI * t) - 1) / 2;
+
+    // Реальные кнопки сайта — занимаются по очереди
+    const buttonIds = ['shop-btn', 'profile-btn', 'fire-chat-btn'];
+    const buttonEls = buttonIds.map(id => document.getElementById(id)).filter(Boolean);
+    const buttonStartGap = 1000;
+    const buttonBurnDuration = 1500;
+    const buttons = buttonEls.map((el, i) => {
+      const r = el.getBoundingClientRect();
+      return { rect: { x: r.left, y: r.top, width: r.width, height: r.height }, startTime: i * buttonStartGap };
+    });
+
+    const total = 13200;                 // медленно и надолго — точно не меньше 10 секунд
+    const frontsStart = 1600;            // огонь с краёв экрана начинает заползать внутрь
+    const frontsFullAt = 9200;           // медленное заполнение — почти 7.5 секунды на весь путь
+    const holdEnd = 11000;
+    const retractEnd = 13000;
+
+    const tongueSeeds = Array.from({ length: 90 }, () => ({
+      phase: Math.random() * Math.PI * 2,
+      freq: 2.2 + Math.random() * 2.6,
+      freq2: 5 + Math.random() * 6,
+      lean: (Math.random() - 0.5) * 0.5
+    }));
+
+    // Один язык пламени: база (baseX,baseY) + направление наружу (nx,ny).
+    // Тёплый чёрно-багрово-оранжевый градиент — то, чего не хватало
+    // прошлой версии, чтобы выглядеть именно как огонь.
+    function drawTongueAt(baseX, baseY, nx, ny, len, halfW, tsec, seedIndex, alphaMul) {
+      const seed = tongueSeeds[seedIndex % tongueSeeds.length];
+      const tanX = -ny, tanY = nx;
+      const lean = seed.lean * (0.6 + 0.4 * Math.sin(tsec * 1.3 + seed.phase));
+      const tipX = baseX + nx * len + tanX * len * lean;
+      const tipY = baseY + ny * len + tanY * len * lean;
+      const leftX = baseX + tanX * halfW, leftY = baseY + tanY * halfW;
+      const rightX = baseX - tanX * halfW, rightY = baseY - tanY * halfW;
+      const midX = baseX + nx * len * 0.55, midY = baseY + ny * len * 0.55;
+
+      ctx.save();
+      ctx.globalAlpha = alphaMul;
+      ctx.beginPath();
+      ctx.moveTo(leftX, leftY);
+      ctx.lineTo(midX + tanX * halfW * 0.4, midY + tanY * halfW * 0.4);
+      ctx.lineTo(tipX, tipY);
+      ctx.lineTo(midX - tanX * halfW * 0.4, midY - tanY * halfW * 0.4);
+      ctx.lineTo(rightX, rightY);
+      ctx.closePath();
+      const g = ctx.createLinearGradient(baseX, baseY, tipX, tipY);
+      g.addColorStop(0, 'rgba(8,2,2,0.95)');
+      g.addColorStop(0.45, 'rgba(46,10,8,0.9)');
+      g.addColorStop(0.75, 'rgba(130,42,10,0.78)');
+      g.addColorStop(0.92, 'rgba(255,140,30,0.6)');
+      g.addColorStop(1, 'rgba(255,210,90,0)');
+      ctx.fillStyle = g;
+      ctx.fill();
+
+      const sparkle = Math.sin(tsec * seed.freq2 * 2 + seed.phase * 3);
+      if (sparkle > 0.94) {
+        ctx.globalAlpha = alphaMul * (sparkle - 0.94) / 0.06;
+        ctx.fillStyle = '#fff3c4';
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, Math.max(2, len * 0.1), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // ---- Огонь по контуру конкретной кнопки ----
+    function perimeterPoint(rect, t) {
+      const perim = 2 * (rect.width + rect.height);
+      let d = clamp01(t) * perim;
+      if (d < rect.width) return { px: rect.x + d, py: rect.y, nx: 0, ny: -1 };
+      d -= rect.width;
+      if (d < rect.height) return { px: rect.x + rect.width, py: rect.y + d, nx: 1, ny: 0 };
+      d -= rect.height;
+      if (d < rect.width) return { px: rect.x + rect.width - d, py: rect.y + rect.height, nx: 0, ny: 1 };
+      d -= rect.width;
+      return { px: rect.x, py: rect.y + rect.height - d, nx: -1, ny: 0 };
+    }
+
+    function drawButtonFire(btn, tsec, burnAlphaMul) {
+      const progress = clamp01((tsec * 1000 - btn.startTime) / buttonBurnDuration);
+      if (progress <= 0) return;
+      const rect = btn.rect;
+      const perim = 2 * (rect.width + rect.height);
+      const tongueCount = Math.max(10, Math.round(perim / 13));
+
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, progress * 1.3) * 0.85 * burnAlphaMul;
+      ctx.fillStyle = '#0d0503';
+      ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+      ctx.restore();
+
+      for (let i = 0; i < tongueCount; i++) {
+        const t = i / tongueCount;
+        if (t > progress) continue;
+        const edgeFade = t > progress - 0.05 ? clamp01((progress - t) / 0.05) : 1;
+        if (edgeFade <= 0.02) continue;
+        const pt = perimeterPoint(rect, t);
+        const flicker = 0.5 + 0.5 * Math.sin(tsec * (2.5 + i * 0.1) + i) + 0.15 * Math.sin(tsec * 7 - i);
+        const len = Math.max(4, 13 * Math.max(0.2, flicker) * edgeFade);
+        drawTongueAt(pt.px, pt.py, pt.nx, pt.ny, len, 4.5, tsec, i, edgeFade * burnAlphaMul);
+      }
+    }
+
+    // ---- Четыре фронта пламени, медленно заползающие с краёв экрана ----
+    const maxDepthH = h * 0.58, maxDepthW = w * 0.58; // с запасом за половину — гарантирует слияние без просветов
+    function frontDepth(coverage, maxDepth) { return maxDepth * coverage; }
+
+    function drawFront(edge, depth, tsec, seedBase, alphaMul) {
+      if (depth <= 1) return;
+      const horizontal = edge === 'top' || edge === 'bottom';
+      const length = horizontal ? w : h;
+      const waveAmp = Math.min(26, depth * 0.35);
+      const segments = 30;
+
+      function boundaryAt(pos) {
+        return Math.sin(pos * 0.007 + tsec * 0.9 + seedBase) * waveAmp +
+          Math.sin(pos * 0.019 - tsec * 0.55 + seedBase) * waveAmp * 0.4;
+      }
+
+      // выжженная область позади фронта
+      ctx.save();
+      ctx.globalAlpha = alphaMul;
+      ctx.beginPath();
+      if (edge === 'top') {
+        ctx.moveTo(0, 0); ctx.lineTo(w, 0);
+        for (let i = segments; i >= 0; i--) { const x = (i / segments) * w; ctx.lineTo(x, depth + boundaryAt(x)); }
+      } else if (edge === 'bottom') {
+        ctx.moveTo(0, h); ctx.lineTo(w, h);
+        for (let i = segments; i >= 0; i--) { const x = (i / segments) * w; ctx.lineTo(x, h - depth + boundaryAt(x)); }
+      } else if (edge === 'left') {
+        ctx.moveTo(0, 0); ctx.lineTo(0, h);
+        for (let i = segments; i >= 0; i--) { const y = (i / segments) * h; ctx.lineTo(depth + boundaryAt(y), y); }
+      } else {
+        ctx.moveTo(w, 0); ctx.lineTo(w, h);
+        for (let i = segments; i >= 0; i--) { const y = (i / segments) * h; ctx.lineTo(w - depth + boundaryAt(y), y); }
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(9,2,3,0.96)';
+      ctx.fill();
+      ctx.restore();
+
+      // языки пламени вдоль кромки фронта, "лижущие" ещё не тронутую область
+      const tongueCount = Math.max(14, Math.round(length / 30));
+      for (let i = 0; i < tongueCount; i++) {
+        const pos = (i / tongueCount) * length;
+        const wob = boundaryAt(pos);
+        let baseX, baseY, nx, ny;
+        if (edge === 'top') { baseX = pos; baseY = depth + wob; nx = 0; ny = 1; }
+        else if (edge === 'bottom') { baseX = pos; baseY = h - depth + wob; nx = 0; ny = -1; }
+        else if (edge === 'left') { baseX = depth + wob; baseY = pos; nx = 1; ny = 0; }
+        else { baseX = w - depth + wob; baseY = pos; nx = -1; ny = 0; }
+
+        const flicker = 0.5 + 0.5 * Math.sin(tsec * (2.4 + seedBase) + i * 1.4) + 0.18 * Math.sin(tsec * 5.5 - i);
+        const len = 16 + 30 * Math.max(0.2, flicker);
+        drawTongueAt(baseX, baseY, nx, ny, len, 8, tsec, i + Math.round(seedBase * 100), alphaMul);
+      }
+    }
+
+    const embers = [];
+    function spawnEmber(x, y) {
+      const angle = Math.random() * Math.PI * 2;
+      embers.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 20, vy: -25 - Math.random() * 40,
+        life: 0, maxLife: 900 + Math.random() * 700, size: 1.5 + Math.random() * 2.5
+      });
+    }
+
+    let startTime = null;
+    let lastEmberSpawn = 0;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      const tsec = elapsed / 1000;
+      ctx.clearRect(0, 0, w, h);
+
+      let burnAlphaMul = 1;
+      if (elapsed >= holdEnd) {
+        burnAlphaMul = elapsed < retractEnd ? 1 - easeInCubic(clamp01((elapsed - holdEnd) / (retractEnd - holdEnd))) : 0;
+      }
+
+      // 1. кнопки занимаются по очереди
+      for (const btn of buttons) drawButtonFire(btn, tsec, burnAlphaMul);
+
+      // 2. медленное заполнение сайта пламенем сразу с четырёх сторон
+      let coverage = 0;
+      if (elapsed >= frontsStart) {
+        coverage = elapsed < frontsFullAt
+          ? easeInOutSine(clamp01((elapsed - frontsStart) / (frontsFullAt - frontsStart)))
+          : 1;
+      }
+      if (elapsed >= holdEnd) coverage *= burnAlphaMul;
+
+      if (coverage > 0.003) {
+        drawFront('top', frontDepth(coverage, maxDepthH), tsec, 0.3, burnAlphaMul);
+        drawFront('bottom', frontDepth(coverage, maxDepthH), tsec, 1.9, burnAlphaMul);
+        drawFront('left', frontDepth(coverage, maxDepthW), tsec, 3.1, burnAlphaMul);
+        drawFront('right', frontDepth(coverage, maxDepthW), tsec, 4.6, burnAlphaMul);
+      }
+
+      // синхронное обесцвечивание сайта пропорционально охвату пламени
+      const grayAmount = easeInOutSine(clamp01(coverage));
+      document.body.style.filter = grayAmount > 0.01
+        ? `grayscale(${grayAmount}) brightness(${1 - grayAmount * 0.16}) contrast(${1 + grayAmount * 0.06})`
+        : '';
+
+      // угольки — от кнопок и вдоль кромки фронтов
+      if (elapsed < retractEnd && elapsed - lastEmberSpawn > 55) {
+        for (const btn of buttons) {
+          const progress = clamp01((elapsed - btn.startTime) / buttonBurnDuration);
+          if (progress > 0.1 && progress < 1) {
+            spawnEmber(btn.rect.x + btn.rect.width / 2, btn.rect.y + btn.rect.height / 2);
+          }
+        }
+        if (coverage > 0.05 && coverage < 0.98) {
+          const edges = [
+            { x: Math.random() * w, y: frontDepth(coverage, maxDepthH) },
+            { x: Math.random() * w, y: h - frontDepth(coverage, maxDepthH) },
+            { x: frontDepth(coverage, maxDepthW), y: Math.random() * h },
+            { x: w - frontDepth(coverage, maxDepthW), y: Math.random() * h }
+          ];
+          const p = edges[Math.floor(Math.random() * edges.length)];
+          spawnEmber(p.x, p.y);
+        }
+        lastEmberSpawn = elapsed;
+      }
+      for (let i = embers.length - 1; i >= 0; i--) {
+        const e = embers[i];
+        e.life += 16.7;
+        e.x += e.vx * 0.0167; e.y += e.vy * 0.0167;
+        e.vy *= 0.985;
+        if (e.life >= e.maxLife) { embers.splice(i, 1); continue; }
+        const a = (1 - e.life / e.maxLife) * burnAlphaMul;
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.fillStyle = a > 0.5 ? '#ff8a35' : '#4a2a20';
+        ctx.shadowColor = '#ff6a20';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (elapsed < total) {
+        requestAnimationFrame(animate);
+      } else {
+        document.body.style.filter = '';
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
+  });
+
+  // ============================================================
+  // transformers – пиксельная фигура-трансформер с эмблемой PB на
+  // груди собирается из ВСЕХ видимых кнопок и надписей сайта, затем
+  // поблочно перестраивается в спорткар и плавно уезжает за кадр вправо,
+  // без бликов и следов позади. 10 секунд.
+  // ============================================================
+  addEasterEgg('transformers', 'TRANSFORMERS', function() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+    const easeInCubic = t => t * t * t;
+    const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const easeOutBack = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+
+    const COL = {
+      dark: '#141414', dark2: '#262626', yellow: '#f6c418', yellowLight: '#ffdf5c', yellowDark: '#c9930e',
+      glow: '#7be8ff', glowDark: '#2a95b8', blue: '#1560d4', blueLight: '#3f8bf0', white: '#f5f7ff', grey: '#9aa0a6', greyDark: '#5b6066', red: '#ff3b30'
+    };
+
+    function paint(map, gx, gy, gw, gh, color) {
+      for (let y = gy; y < gy + gh; y++) for (let x = gx; x < gx + gw; x++) map.set(x + ',' + y, color);
+    }
+    const P_BITMAP = ['111', '101', '111', '100', '100'];
+    const B_BITMAP = ['111', '101', '111', '101', '111'];
+    function paintLetter(map, bitmap, gx, gy, color) {
+      for (let ry = 0; ry < bitmap.length; ry++)
+        for (let rx = 0; rx < bitmap[ry].length; rx++)
+          if (bitmap[ry][rx] === '1') map.set((gx + rx) + ',' + (gy + ry), color);
+    }
+
+    // ---- РОБОТ: гуманоид с эмблемой "PB" на груди, с лёгкой светотенью ----
+    const robotMap = new Map();
+    paint(robotMap, 17, 1, 6, 5, COL.dark);
+    paint(robotMap, 18, 3, 4, 1, COL.glow);
+    paint(robotMap, 13, 6, 14, 2, COL.dark2);
+    paint(robotMap, 9, 7, 5, 4, COL.yellow);
+    paint(robotMap, 9, 7, 1, 4, COL.yellowLight);
+    paint(robotMap, 13, 7, 1, 4, COL.yellowDark);
+    paint(robotMap, 26, 7, 5, 4, COL.yellow);
+    paint(robotMap, 26, 7, 1, 4, COL.yellowLight);
+    paint(robotMap, 30, 7, 1, 4, COL.yellowDark);
+    paint(robotMap, 14, 7, 12, 11, COL.yellow);
+    paint(robotMap, 14, 7, 1, 11, COL.dark);
+    paint(robotMap, 25, 7, 1, 11, COL.dark);
+    paint(robotMap, 15, 9, 10, 8, COL.blue);
+    paint(robotMap, 15, 9, 1, 8, COL.blueLight);
+    paint(robotMap, 16, 10, 8, 6, COL.white);
+    paintLetter(robotMap, P_BITMAP, 16, 11, COL.dark2);
+    paintLetter(robotMap, B_BITMAP, 20, 11, COL.dark2);
+    paint(robotMap, 15, 18, 10, 2, COL.dark2);
+    paint(robotMap, 7, 8, 3, 6, COL.yellow);
+    paint(robotMap, 7, 8, 1, 6, COL.yellowLight);
+    paint(robotMap, 6, 14, 3, 4, COL.dark2);
+    paint(robotMap, 6, 18, 3, 2, COL.dark);
+    paint(robotMap, 30, 8, 3, 6, COL.yellow);
+    paint(robotMap, 32, 8, 1, 6, COL.yellowDark);
+    paint(robotMap, 31, 14, 3, 4, COL.dark2);
+    paint(robotMap, 31, 18, 3, 2, COL.dark);
+    paint(robotMap, 16, 20, 4, 7, COL.yellow);
+    paint(robotMap, 16, 20, 1, 7, COL.yellowLight);
+    paint(robotMap, 15, 27, 6, 3, COL.dark);
+    paint(robotMap, 20, 20, 4, 7, COL.yellow);
+    paint(robotMap, 23, 20, 1, 7, COL.yellowDark);
+    paint(robotMap, 19, 27, 6, 3, COL.dark);
+
+    // ---- МАШИНА: спорткар в духе Бамблби, с бликами кузова для объёма ----
+    const carMap = new Map();
+    paint(carMap, 4, 20, 32, 6, COL.yellow);
+    paint(carMap, 4, 20, 32, 1, COL.yellowLight);
+    paint(carMap, 4, 24, 32, 2, COL.yellowDark);
+    paint(carMap, 12, 14, 14, 7, COL.yellow);
+    paint(carMap, 12, 14, 14, 1, COL.yellowLight);
+    paint(carMap, 13, 15, 4, 4, COL.glow);
+    paint(carMap, 13, 15, 4, 1, COL.white);
+    paint(carMap, 22, 15, 4, 4, COL.glow);
+    paint(carMap, 22, 18, 4, 1, COL.glowDark);
+    paint(carMap, 11, 14, 2, 12, COL.dark);
+    paint(carMap, 26, 14, 2, 12, COL.dark);
+    paint(carMap, 2, 23, 3, 3, COL.dark);
+    paint(carMap, 36, 23, 3, 3, COL.dark);
+    paint(carMap, 3, 21, 2, 2, COL.white);
+    paint(carMap, 37, 21, 2, 2, COL.red);
+    paint(carMap, 7, 24, 6, 6, COL.dark);
+    paint(carMap, 8, 25, 4, 4, COL.grey);
+    paint(carMap, 9, 26, 2, 2, COL.greyDark);
+    paint(carMap, 27, 24, 6, 6, COL.dark);
+    paint(carMap, 28, 25, 4, 4, COL.grey);
+    paint(carMap, 29, 26, 2, 2, COL.greyDark);
+    paint(carMap, 17, 21, 6, 4, COL.blue);
+    paint(carMap, 18, 22, 4, 2, COL.white);
+
+    function flatten(map) {
+      const arr = [];
+      for (const [key, color] of map) {
+        const [gx, gy] = key.split(',').map(Number);
+        arr.push({ gx, gy, color });
+      }
+      arr.sort((a, b) => a.gy - b.gy || a.gx - b.gx);
+      return arr;
+    }
+    const robotCells = flatten(robotMap);
+    const carCells = flatten(carMap);
+    const n = Math.max(robotCells.length, carCells.length);
+
+    const pixelSize = Math.max(6, Math.min(11, Math.floor(w / 70)));
+    const gridW = 40, gridH = 34;
+    const originX = w / 2 - (gridW * pixelSize) / 2;
+    const originY = h / 2 - (gridH * pixelSize) / 2;
+    function gridToScreen(gx, gy) {
+      return { x: originX + gx * pixelSize, y: originY + gy * pixelSize };
+    }
+
+    // Трансформер собирается из ВСЕХ видимых кнопок и надписей сайта —
+    // не только магазина: заголовок, подзаголовок и каждая кнопка на
+    // экране (модалки, скрытые в данный момент, естественно не попадают,
+    // потому что у них нулевой размер и они вне области видимости).
+    // Все они на время анимации плавно исчезают и появляются снова в конце.
+    const candidateEls = Array.from(document.querySelectorAll('button, h1, .subtitle'));
+    const sourceEls = candidateEls.filter(el => {
+      const r = el.getBoundingClientRect();
+      return r.width > 4 && r.height > 4 &&
+        r.bottom > 0 && r.top < window.innerHeight &&
+        r.right > 0 && r.left < window.innerWidth;
+    });
+    const sourceRects = sourceEls.map(el => el.getBoundingClientRect());
+    sourceEls.forEach(el => { el.style.transition = 'opacity 0.4s ease'; el.style.opacity = '0'; });
+
+    const particles = [];
+    for (let i = 0; i < n; i++) {
+      const from = robotCells[i % robotCells.length];
+      const to = carCells[i % carCells.length];
+      const startPos = gridToScreen(from.gx, from.gy);
+      let spawnX, spawnY;
+      if (sourceRects.length > 0) {
+        const rect = sourceRects[i % sourceRects.length];
+        spawnX = rect.left + Math.random() * rect.width;
+        spawnY = rect.top + Math.random() * rect.height;
+      } else {
+        const edgeAngle = Math.random() * Math.PI * 2;
+        const edgeDist = Math.max(w, h) * (0.7 + Math.random() * 0.5);
+        spawnX = w / 2 + Math.cos(edgeAngle) * edgeDist;
+        spawnY = h / 2 + Math.sin(edgeAngle) * edgeDist;
+      }
+      particles.push({
+        spawnX, spawnY,
+        robotX: startPos.x, robotY: startPos.y,
+        carGX: to.gx, carGY: to.gy,
+        fromColor: from.color, toColor: to.color,
+        staggerA: Math.random() * 350,
+        staggerB: Math.random() * 700
+      });
+    }
+
+    function hexToRgb(hex) {
+      const num = parseInt(hex.slice(1), 16);
+      return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+    }
+    const colorCache = {};
+    function lerpColor(c1, c2, t) {
+      const key = c1 + '|' + c2;
+      if (!colorCache[key]) colorCache[key] = [hexToRgb(c1), hexToRgb(c2)];
+      const [a, b] = colorCache[key];
+      return `rgb(${Math.round(a.r + (b.r - a.r) * t)},${Math.round(a.g + (b.g - a.g) * t)},${Math.round(a.b + (b.b - a.b) * t)})`;
+    }
+
+    const total = 10000;
+    const assembleEnd = 1700;
+    const morphStart = 2700;
+    const morphEnd = 5600;
+    const driveEnd = 9000;
+    const exitFadeEnd = 9500; // машина плавно скрывается за кадром, без следов и бликов
+
+    const sparks = [];
+    function spawnSpark(x, y) {
+      const a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 160;
+      sparks.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0, maxLife: 300 + Math.random() * 300, size: 1 + Math.random() * 2 });
+    }
+
+    let startTime = null;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      ctx.clearRect(0, 0, w, h);
+
+      let driveOffsetX = 0, driveOffsetY = 0;
+      if (elapsed > morphEnd) {
+        const t = clamp01((elapsed - morphEnd) / (exitFadeEnd - morphEnd));
+        driveOffsetX = easeInCubic(t) * (w * 0.95);
+        driveOffsetY = elapsed < driveEnd ? Math.sin(elapsed / 90) * 1.4 : 0;
+      }
+
+      for (const p of particles) {
+        let x, y, color, alpha = 1, rot = 0;
+
+        if (elapsed < assembleEnd) {
+          const localElapsed = Math.max(0, elapsed - p.staggerA);
+          const dur = assembleEnd - 300;
+          const t = clamp01(localElapsed / dur);
+          const te = easeOutBack(t);
+          x = p.spawnX + (p.robotX - p.spawnX) * te;
+          y = p.spawnY + (p.robotY - p.spawnY) * te;
+          alpha = clamp01(localElapsed / 200);
+          rot = (1 - t) * Math.PI * 2;
+          color = p.fromColor;
+        } else if (elapsed < morphStart) {
+          x = p.robotX; y = p.robotY; color = p.fromColor;
+        } else if (elapsed < morphEnd) {
+          const localElapsed = Math.max(0, elapsed - morphStart - p.staggerB);
+          const dur = (morphEnd - morphStart) - 700;
+          const t = clamp01(localElapsed / dur);
+          const te = easeInOutCubic(t);
+          const carPos = gridToScreen(p.carGX, p.carGY);
+          x = p.robotX + (carPos.x - p.robotX) * te;
+          y = p.robotY + (carPos.y - p.robotY) * te - Math.sin(te * Math.PI) * 14;
+          color = lerpColor(p.fromColor, p.toColor, te);
+          rot = te * Math.PI * 3;
+          if (Math.random() < 0.012 && te > 0.15 && te < 0.9) spawnSpark(x, y);
+        } else {
+          const carPos = gridToScreen(p.carGX, p.carGY);
+          x = carPos.x + driveOffsetX;
+          y = carPos.y + driveOffsetY;
+          color = p.toColor;
+          // машина плавно растворяется, уходя за правый край — без бликов и следов позади
+          if (elapsed > driveEnd) alpha = clamp01(1 - (elapsed - driveEnd) / (exitFadeEnd - driveEnd));
+          if (x > w + 20) alpha = 0;
+        }
+
+        if (alpha <= 0.01) continue;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(x + pixelSize / 2, y + pixelSize / 2);
+        if (rot) ctx.rotate(rot);
+        ctx.fillStyle = color;
+        ctx.fillRect(-pixelSize / 2, -pixelSize / 2, pixelSize, pixelSize);
+        ctx.restore();
+      }
+
+      // вспышка света в момент начала трансформации
+      if (elapsed > morphStart && elapsed < morphStart + 260) {
+        const ft = 1 - clamp01((elapsed - morphStart) / 260);
+        ctx.save();
+        ctx.globalAlpha = ft * 0.5;
+        const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.4);
+        g.addColorStop(0, 'rgba(255,255,255,0.9)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
+      }
+
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const s = sparks[i];
+        s.life += 16.7;
+        s.x += s.vx * 0.0167; s.y += s.vy * 0.0167;
+        s.vx *= 0.94; s.vy *= 0.94;
+        if (s.life >= s.maxLife) { sparks.splice(i, 1); continue; }
+        const a = 1 - s.life / s.maxLife;
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#bfefff';
+        ctx.shadowColor = '#7be8ff';
+        ctx.shadowBlur = 5;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (elapsed < total) {
+        requestAnimationFrame(animate);
+      } else {
+        sourceEls.forEach(el => { el.style.opacity = ''; });
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
+  });
+
+  // ============================================================
+  // sixseven – отсылка на мем "67": две крупные цифры 6 и 7, под каждой —
+  // раскрытая ладонь, развёрнутая тыльной стороной вниз и пальцами вверх,
+  // к зрителю (как будто на ней что-то держат/показывают). Сначала
+  // статика, затем покачивание вверх-вниз ВРАЗНОБОЙ — левая и правая
+  // сторона трясутся по очереди, в противофазе — и постепенно ускоряется.
+  // Активируется словом SIXSEVEN или просто числом 67. ~4 секунды.
+  // ============================================================
+  function sixSevenAction() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+    const easeInCubic = t => t * t * t;
+    const easeOutBack = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+
+    const cx = w / 2, cy = h / 2;
+    const digitH = Math.min(220, h * 0.32);
+    const digitW = digitH * 0.55;
+    const gap = digitW * 0.9;
+    const leftCX = cx - gap / 2 - digitW / 2;
+    const rightCX = cx + gap / 2 + digitW / 2;
+    const digitCY = cy - digitH * 0.15;
+    const thickness = digitW * 0.16;
+
+    function drawDigit(dcx, dcy, dw, dh, segments, color) {
+      const halfW = dw / 2, halfH = dh / 2, th = thickness;
+      const segs = {
+        top: [dcx - halfW + th, dcy - halfH, dw - 2 * th, th],
+        topLeft: [dcx - halfW, dcy - halfH + th * 0.5, th, halfH - th * 0.5],
+        topRight: [dcx + halfW - th, dcy - halfH + th * 0.5, th, halfH - th * 0.5],
+        middle: [dcx - halfW + th, dcy - th / 2, dw - 2 * th, th],
+        bottomLeft: [dcx - halfW, dcy + th * 0.5, th, halfH - th * 0.5],
+        bottomRight: [dcx + halfW - th, dcy + th * 0.5, th, halfH - th * 0.5],
+        bottom: [dcx - halfW + th, dcy + halfH - th, dw - 2 * th, th]
+      };
+      ctx.fillStyle = color;
+      for (const key of segments) {
+        const s = segs[key];
+        ctx.fillRect(s[0], s[1], s[2], s[3]);
+      }
+    }
+    const DIGIT_6 = ['top', 'topLeft', 'middle', 'bottomLeft', 'bottomRight', 'bottom'];
+    const DIGIT_7 = ['top', 'topRight', 'bottomRight'];
+
+    // Раскрытая ладонь, повёрнутая лицом к зрителю (как на референсе):
+    // широкая округлая чаша ладони снизу, четыре слегка согнутых пальца
+    // сверху и отставленный большой палец сбоку.
+    function drawHand(hcx, hcy, width, tilt) {
+      const palmW = width, palmH = width * 0.6;
+      const fingerW = width * 0.11;
+
+      ctx.save();
+      ctx.translate(hcx, hcy);
+      ctx.rotate(tilt);
+      ctx.fillStyle = '#e8c49a';
+      ctx.strokeStyle = '#2a1a10';
+      ctx.lineWidth = Math.max(1.4, width * 0.018);
+
+      // ладонь
+      ctx.beginPath();
+      ctx.moveTo(-palmW * 0.46, palmH * 0.05);
+      ctx.quadraticCurveTo(-palmW * 0.5, palmH * 0.5, 0, palmH * 0.5);
+      ctx.quadraticCurveTo(palmW * 0.5, palmH * 0.5, palmW * 0.46, palmH * 0.05);
+      ctx.quadraticCurveTo(palmW * 0.4, -palmH * 0.12, palmW * 0.26, -palmH * 0.04);
+      ctx.quadraticCurveTo(0, palmH * 0.06, -palmW * 0.26, -palmH * 0.04);
+      ctx.quadraticCurveTo(-palmW * 0.4, -palmH * 0.12, -palmW * 0.46, palmH * 0.05);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // четыре пальца сверху, слегка согнуты внутрь на кончиках
+      for (let i = 0; i < 4; i++) {
+        const fx = -palmW * 0.34 + (i / 3) * palmW * 0.68;
+        const fLen = width * 0.32 * (i === 1 || i === 2 ? 1.1 : 0.9);
+        ctx.save();
+        ctx.translate(fx, -palmH * 0.02);
+        ctx.beginPath();
+        ctx.moveTo(-fingerW / 2, 0);
+        ctx.lineTo(-fingerW / 2, -fLen * 0.68);
+        ctx.quadraticCurveTo(-fingerW / 2, -fLen, 0, -fLen);
+        ctx.quadraticCurveTo(fingerW / 2, -fLen, fingerW / 2, -fLen * 0.68);
+        ctx.lineTo(fingerW / 2, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // большой палец сбоку, под углом
+      ctx.save();
+      ctx.translate(palmW * 0.48, palmH * 0.12);
+      ctx.rotate(0.95);
+      ctx.beginPath();
+      ctx.moveTo(-fingerW * 0.6, 0);
+      ctx.lineTo(-fingerW * 0.6, -width * 0.24);
+      ctx.quadraticCurveTo(-fingerW * 0.6, -width * 0.3, 0, -width * 0.3);
+      ctx.quadraticCurveTo(fingerW * 0.6, -width * 0.3, fingerW * 0.6, -width * 0.24);
+      ctx.lineTo(fingerW * 0.6, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    const total = 4000;
+    const popEnd = 150;
+    const staticEnd = 800;
+    const slowBobEnd = 2400;
+
+    let startTime = null, lastTs = null, bobPhase = 0;
+
+    function animate(ts) {
+      if (!startTime) { startTime = ts; lastTs = ts; }
+      const dt = Math.min(0.05, (ts - lastTs) / 1000);
+      lastTs = ts;
+      const elapsed = ts - startTime;
+      ctx.clearRect(0, 0, w, h);
+
+      // темп покачивания: сначала статика, потом ровный медленный темп,
+      // затем плавно разгоняется до очень быстрого
+      let freq = 0;
+      if (elapsed > staticEnd) {
+        freq = elapsed < slowBobEnd
+          ? 1.8
+          : 1.8 + (8.5 - 1.8) * easeInCubic(clamp01((elapsed - slowBobEnd) / (total - slowBobEnd)));
+      }
+      bobPhase += 2 * Math.PI * freq * dt;
+
+      let amp = 0;
+      if (elapsed > staticEnd) {
+        amp = elapsed < slowBobEnd
+          ? 16
+          : 16 + (36 - 16) * clamp01((elapsed - slowBobEnd) / (total - slowBobEnd));
+      }
+      // левая и правая сторона качаются в противофазе — не вместе, а вразнобой
+      const leftOffsetY = Math.sin(bobPhase) * amp;
+      const rightOffsetY = Math.sin(bobPhase + Math.PI) * amp;
+      const leftTilt = Math.sin(bobPhase) * 0.05;
+      const rightTilt = Math.sin(bobPhase + Math.PI) * 0.05;
+
+      const scale = elapsed < popEnd ? 0.8 + 0.2 * easeOutBack(clamp01(elapsed / popEnd)) : 1;
+
+      function drawColumn(dcx, segments, offsetY, tilt) {
+        ctx.save();
+        ctx.translate(dcx, digitCY + offsetY);
+        ctx.rotate(tilt);
+        ctx.scale(scale, scale);
+        drawDigit(0, 0, digitW, digitH, segments, '#f6c418');
+        ctx.restore();
+        drawHand(dcx, digitCY + offsetY + digitH / 2 + digitW * 0.18, digitW * 0.82, tilt);
+      }
+
+      drawColumn(leftCX, DIGIT_6, leftOffsetY, leftTilt);
+      drawColumn(rightCX, DIGIT_7, rightOffsetY, rightTilt);
+
+      if (elapsed < total) {
+        requestAnimationFrame(animate);
+      } else {
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+  addEasterEgg('sixseven', 'SIXSEVEN', sixSevenAction);
+  addEasterEgg('sixseven', '67', sixSevenAction);
+
   
   
   // ---------- КАЛЕНДАРЬ И ВРЕМЯ ----------
