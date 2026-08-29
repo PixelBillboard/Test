@@ -709,7 +709,7 @@ window.redraw = redraw;
     setTimeout(() => msg.remove(), duration);
   }
 
-  const GLOBAL_COOLDOWN = 3000, INDIVIDUAL_COOLDOWN = 10000;
+  const GLOBAL_COOLDOWN = 15000, INDIVIDUAL_COOLDOWN = 15000;
   let lastGlobalActivation = 0, cooldowns = {};
   function canActivate(name) {
     const now = Date.now();
@@ -1119,9 +1119,107 @@ easterInput.addEventListener('keydown', function(e) {
   addEasterEgg('mario', 'MARIO', marioBlock);
 
   // igni
+  // ============================================================
+  // igni – живой огонь, который 10 секунд следует за курсором мыши
+  // (а на телефоне — за пальцем при касании экрана).
+  // ============================================================
   addEasterEgg('igni', 'IGNI', () => {
-    document.body.style.cursor = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\'%3E%3Cpolygon points=\'2,2 30,16 16,16 20,24 14,24 16,16 2,16\' fill=\'%23ff4500\' stroke=\'%23ff0\' stroke-width=\'1.5\'/%3E%3Cpolygon points=\'2,2 10,10 2,10\' fill=\'%23ff0\'/%3E%3C/svg%3E") 16 16, auto';
-    setTimeout(() => document.body.style.cursor = '', 30000);
+    const w = window.innerWidth, h = window.innerHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    let pointerX = w / 2, pointerY = h / 2, hasPointer = false;
+    function onMove(e) { pointerX = e.clientX; pointerY = e.clientY; hasPointer = true; }
+    function onTouch(e) {
+      if (e.touches && e.touches.length > 0) {
+        pointerX = e.touches[0].clientX; pointerY = e.touches[0].clientY; hasPointer = true;
+      }
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('touchstart', onTouch, { passive: true });
+    window.addEventListener('touchmove', onTouch, { passive: true });
+
+    const particles = [];
+    function spawnParticle() {
+      if (!hasPointer) return;
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.1;
+      const speed = 40 + Math.random() * 70;
+      particles.push({
+        x: pointerX + (Math.random() - 0.5) * 10,
+        y: pointerY + (Math.random() - 0.5) * 6,
+        vx: Math.cos(angle) * speed * 0.3,
+        vy: Math.sin(angle) * speed,
+        life: 0,
+        maxLife: 450 + Math.random() * 350,
+        size: 6 + Math.random() * 10,
+        wobbleSeed: Math.random() * 10
+      });
+    }
+
+    const total = 10000;
+    let startTime = null, lastSpawn = 0;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      ctx.clearRect(0, 0, w, h);
+
+      if (elapsed < total && elapsed - lastSpawn > 10) {
+        for (let i = 0; i < 3; i++) spawnParticle();
+        lastSpawn = elapsed;
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life += 16.7;
+        p.x += p.vx * 0.0167;
+        p.y += p.vy * 0.0167;
+        p.vy -= 32 * 0.0167; // конвекция — огонь ускоряется вверх
+        p.vx += Math.sin(p.life / 80 + p.wobbleSeed) * 4;
+        if (p.life >= p.maxLife) { particles.splice(i, 1); continue; }
+
+        const t = p.life / p.maxLife;
+        const size = p.size * (1 - t * 0.7);
+        const alpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, alpha) * 0.9;
+        ctx.globalCompositeOperation = 'lighter';
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, Math.max(1, size));
+        if (t < 0.3) {
+          grad.addColorStop(0, '#fff7cc');
+          grad.addColorStop(0.4, '#ffd23f');
+          grad.addColorStop(1, 'rgba(255,150,20,0)');
+        } else if (t < 0.65) {
+          grad.addColorStop(0, '#ffb020');
+          grad.addColorStop(0.5, '#ff5a1f');
+          grad.addColorStop(1, 'rgba(200,20,10,0)');
+        } else {
+          grad.addColorStop(0, '#ff3d1f');
+          grad.addColorStop(0.5, '#8a1a10');
+          grad.addColorStop(1, 'rgba(60,10,10,0)');
+        }
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(1, size), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (elapsed < total || particles.length > 0) {
+        requestAnimationFrame(animate);
+      } else {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('touchstart', onTouch);
+        window.removeEventListener('touchmove', onTouch);
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
   });
 
   // aard (сдувание пикселей)
@@ -1145,23 +1243,149 @@ easterInput.addEventListener('keydown', function(e) {
 
   // tardis
   addEasterEgg('tardis', 'TARDIS', () => {
-    const box = document.createElement('div');
-    box.className = 'tardis-box';
-    box.innerHTML = `
-      <div>POLICE</div>
-      <div>BOX</div>
-      <div class="windows">
-        <div class="window-row">
-          <div class="window-pane"></div><div class="window-pane"></div>
-        </div>
-        <div class="window-row">
-          <div class="window-pane"></div><div class="window-pane"></div>
-        </div>
-      </div>
-    `;
-    box.style.cssText += 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); animation: tardisFade 2s forwards; z-index:500;';
-    document.body.appendChild(box);
-    setTimeout(() => box.remove(), 2000);
+    const w = window.innerWidth, h = window.innerHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+    const easeOutBack = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+    const T_DARK = '#0a0a0a';
+    const T_BLUE = '#1d3f8f';
+    const T_WHITE = '#f2f4f8';
+    const T_GREY = '#8b8b8b';
+    const T_LIGHT_GREY = '#c9cdd6';
+    const T_GLOW = '#f4e6a8';
+
+    function paint(map, gx, gy, gw, gh, color) {
+      for (let y = gy; y < gy + gh; y++) for (let x = gx; x < gx + gw; x++) map.set(x + ',' + y, color);
+    }
+    function paintWindow6(map, gx, gy) {
+      paint(map, gx, gy, 10, 7, T_DARK);
+      paint(map, gx + 1, gy + 1, 2, 2, T_WHITE);
+      paint(map, gx + 4, gy + 1, 2, 2, T_WHITE);
+      paint(map, gx + 7, gy + 1, 2, 2, T_WHITE);
+      paint(map, gx + 1, gy + 4, 2, 2, T_WHITE);
+      paint(map, gx + 4, gy + 4, 2, 2, T_WHITE);
+      paint(map, gx + 7, gy + 4, 2, 2, T_WHITE);
+    }
+
+    const tardisMap = new Map();
+    // фонарь на крыше
+    paint(tardisMap, 17, 0, 6, 3, T_DARK);
+    paint(tardisMap, 18, 1, 4, 1, T_GLOW);
+    paint(tardisMap, 15, 3, 10, 1, T_DARK);
+    // вывеска "POLICE BOX" (текст рисуется отдельно поверх)
+    paint(tardisMap, 8, 4, 24, 5, T_DARK);
+    // корпус будки
+    paint(tardisMap, 8, 9, 24, 54, T_DARK);
+    paint(tardisMap, 9, 10, 22, 52, T_BLUE);
+    // центральная перегородка между дверьми + ручка
+    paint(tardisMap, 19, 10, 2, 52, T_DARK);
+    paint(tardisMap, 19, 30, 2, 3, T_GREY);
+    // окна (левая и правая дверь)
+    paintWindow6(tardisMap, 9, 11);
+    paintWindow6(tardisMap, 21, 11);
+    // доска объявлений слева — белая панель с сеткой
+    paint(tardisMap, 10, 19, 8, 8, T_DARK);
+    paint(tardisMap, 11, 20, 6, 6, T_WHITE);
+    paint(tardisMap, 14, 20, 1, 6, T_LIGHT_GREY);
+    paint(tardisMap, 11, 23, 6, 1, T_LIGHT_GREY);
+    // синяя панель справа с крестом
+    paint(tardisMap, 25, 20, 2, 6, T_WHITE);
+    paint(tardisMap, 23, 22, 6, 2, T_WHITE);
+    // нижние панели — левая дверь
+    paint(tardisMap, 10, 30, 8, 13, T_DARK);
+    paint(tardisMap, 11, 31, 6, 11, T_BLUE);
+    paint(tardisMap, 10, 45, 8, 13, T_DARK);
+    paint(tardisMap, 11, 46, 6, 11, T_BLUE);
+    // нижние панели — правая дверь
+    paint(tardisMap, 22, 30, 8, 13, T_DARK);
+    paint(tardisMap, 23, 31, 6, 11, T_BLUE);
+    paint(tardisMap, 22, 45, 8, 13, T_DARK);
+    paint(tardisMap, 23, 46, 6, 11, T_BLUE);
+    // цоколь
+    paint(tardisMap, 7, 63, 26, 2, T_DARK);
+
+    const tardisCells = [];
+    for (const [key, color] of tardisMap) {
+      const [gx, gy] = key.split(',').map(Number);
+      tardisCells.push({ gx, gy, color });
+    }
+
+    const gridW = 40, gridH = 66;
+    const pixelSize = Math.max(4, Math.min(8, Math.floor(h / (gridH * 1.35))));
+    const originX = w / 2 - (gridW * pixelSize) / 2;
+    const originY = h / 2 - (gridH * pixelSize) / 2;
+
+    const total = 4200;
+    const inEnd = 550;
+    const fadeStart = 3300;
+
+    let startTime = null;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      ctx.clearRect(0, 0, w, h);
+
+      const inT = clamp01(elapsed / inEnd);
+      const scale = elapsed < inEnd ? 0.6 + 0.4 * easeOutBack(inT) : 1;
+      const alphaIn = easeOutCubic(clamp01(elapsed / 300));
+      const alphaOut = elapsed > fadeStart ? clamp01(1 - (elapsed - fadeStart) / (total - fadeStart)) : 1;
+      const alpha = Math.min(alphaIn, alphaOut);
+
+      const centerX = w / 2, centerY = h / 2;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(centerX, centerY);
+      ctx.scale(scale, scale);
+      ctx.translate(-centerX, -centerY);
+
+      for (const c of tardisCells) {
+        const x = originX + c.gx * pixelSize;
+        const y = originY + c.gy * pixelSize;
+        ctx.fillStyle = c.color;
+        ctx.fillRect(x, y, pixelSize + 0.5, pixelSize + 0.5);
+      }
+
+      // мягкое пульсирующее свечение фонаря
+      const glowPulse = 0.5 + 0.5 * Math.sin(elapsed / 260);
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.5 * glowPulse;
+      const glowX = originX + 20 * pixelSize, glowY = originY + 1.5 * pixelSize;
+      const g = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, pixelSize * 6);
+      g.addColorStop(0, 'rgba(244,230,168,0.9)');
+      g.addColorStop(1, 'rgba(244,230,168,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(glowX, glowY, pixelSize * 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // текст на вывеске
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = T_WHITE;
+      ctx.font = `bold ${Math.round(pixelSize * 2.6)}px Arial, sans-serif`;
+      const signCenterX = originX + (8 + 24 / 2) * pixelSize;
+      const signCenterY = originY + (4 + 5 / 2) * pixelSize;
+      ctx.fillText('POLICE BOX', signCenterX, signCenterY + 1);
+
+      ctx.restore();
+
+      if (elapsed < total) {
+        requestAnimationFrame(animate);
+      } else {
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
   });
 
   // Гарри Поттер lumos/nox
@@ -2009,76 +2233,6 @@ addEasterEgg('memory', 'MEMORY', function() {
   // Старт
   renderGrid();
   resetTimer();
-});
-
-// ================= ЧЕЛОВЕК-ПАУК: ПАУТИНА =================
-addEasterEgg('spiderman', 'SPIDERMAN', function() {
-  const centerX = window.innerWidth / 2;
-  const centerY = window.innerHeight / 2;
-
-  const web = document.createElement('div');
-  web.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 300000; pointer-events: none;
-  `;
-  document.body.appendChild(web);
-
-  // Радиальные нити (8 лучей)
-  for (let angle = 0; angle < 360; angle += 22.5) {
-    const line = document.createElement('div');
-    const rad = (angle * Math.PI) / 180;
-    const length = Math.sqrt(centerX * centerX + centerY * centerY);
-    line.style.cssText = `
-      position: absolute;
-      top: ${centerY}px; left: ${centerX}px;
-      width: ${length}px; height: 2px;
-      background: linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.2));
-      transform-origin: 0 0;
-      transform: rotate(${rad}rad) scaleX(0);
-      opacity: 0.8;
-      transition: transform 0.6s ease-out, opacity 0.3s;
-    `;
-    web.appendChild(line);
-    requestAnimationFrame(() => { line.style.transform = `rotate(${rad}rad) scaleX(1)`; });
-  }
-
-  // Круговые нити (5 колец)
-  for (let r = 50; r <= 250; r += 50) {
-    const circle = document.createElement('div');
-    circle.style.cssText = `
-      position: absolute;
-      top: ${centerY - r}px; left: ${centerX - r}px;
-      width: ${r * 2}px; height: ${r * 2}px;
-      border: 2px solid rgba(255,255,255,0.7);
-      border-radius: 50%;
-      opacity: 0;
-      transform: scale(0);
-      transition: transform 0.6s ease-out, opacity 0.3s;
-    `;
-    web.appendChild(circle);
-    requestAnimationFrame(() => { circle.style.opacity = '0.8'; circle.style.transform = 'scale(1)'; });
-  }
-
-  // Центральный узел
-  const centerCircle = document.createElement('div');
-  centerCircle.style.cssText = `
-    position: absolute;
-    top: ${centerY - 20}px; left: ${centerX - 20}px;
-    width: 40px; height: 40px;
-    border: 2px solid rgba(255,255,255,0.9);
-    border-radius: 50%;
-    opacity: 0;
-    transform: scale(0);
-    transition: transform 0.6s ease-out, opacity 0.3s;
-  `;
-  web.appendChild(centerCircle);
-  requestAnimationFrame(() => { centerCircle.style.opacity = '1'; centerCircle.style.transform = 'scale(1)'; });
-
-  // Исчезновение через 2.5 секунды
-  setTimeout(() => {
-    web.style.opacity = '0';
-    setTimeout(() => web.remove(), 500);
-  }, 2500);
 });
 
 // ================= НАЗАД В БУДУЩЕЕ: ЧАСЫ НА БАШНЕ (дверь вплотную к порогу) =================
@@ -3410,9 +3564,9 @@ addEasterEgg('up', 'UP', function() {
 
   // ============================================================
   // itachi – отсылка на Итачи Учиха: экран целиком чёрный (одна
-  // сплошная заливка, без деления на клетки), а вороны — настоящая
-  // стая, разлетающаяся из случайных точек экрана в разные стороны.
-  // Там, откуда улетела ворона, навсегда открывается просвет. 10 секунд.
+  // сплошная заливка, без деления на клетки), тьма держится дольше,
+  // затем стая — настоящие вороны — медленно и постепенно разлетается
+  // из случайных точек экрана в разные стороны, понемногу открывая свет. 12 секунд.
   // ============================================================
   addEasterEgg('itachi', 'ITACHI', function() {
     const w = window.innerWidth, h = window.innerHeight;
@@ -3425,10 +3579,10 @@ addEasterEgg('up', 'UP', function() {
     const clamp01 = t => Math.max(0, Math.min(1, t));
     const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 
-    const total = 10000;
+    const total = 12000;
     const appearEnd = 400;
-    const departStart = 700;
-    const departWindow = 7600;
+    const departStart = 1600;      // тьма держится дольше, прежде чем кто-то улетит
+    const departWindow = 9600;     // окно вылетов растянуто — раскрытие идёт медленно
     const forceClearAt = total - 500; // страховка: гарантированно открыть весь экран к финалу
 
     // Постоянная чёрная маска — реально сплошная заливка на старте,
@@ -3454,7 +3608,7 @@ addEasterEgg('up', 'UP', function() {
     }
 
     // Стая из случайных точек экрана — никакой сетки/клеток
-    const crowCount = Math.max(55, Math.min(130, Math.round((w * h) / 15000)));
+    const crowCount = Math.max(90, Math.min(170, Math.round((w * h) / 13000)));
     const crows = [];
     for (let i = 0; i < crowCount; i++) {
       crows.push({
@@ -3592,7 +3746,7 @@ addEasterEgg('up', 'UP', function() {
         if (elapsed < crow.departTime) continue; // ещё часть общей тьмы — уже нарисована маской выше
 
         if (!crow.holePunched) {
-          punchHole(crow.x, crow.y, crow.size * 2.4);
+          punchHole(crow.x, crow.y, crow.size * 1.15);
           crow.holePunched = true;
         }
 
@@ -4357,6 +4511,497 @@ addEasterEgg('up', 'UP', function() {
   }
   addEasterEgg('sixseven', 'SIXSEVEN', sixSevenAction);
   addEasterEgg('sixseven', '67', sixSevenAction);
+
+  // ============================================================
+  // 42brotha – "42 братуха": число 52 с мерцающей гирляндой, НЛО
+  // похищает цифру 5, на её месте материализуется 4 (получается 42),
+  // снизу печатается "братуха". 5 секунд. Активация: число 42.
+  // ============================================================
+  addEasterEgg('42brotha', '42', function() {
+    const w = window.innerWidth, h = window.innerHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+    const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const cx = w / 2, cy = h / 2;
+    const digitH = Math.min(300, h * 0.34);
+    const digitW = digitH * (200 / 300);
+    const gap = digitW * 0.45;
+    const leftCX = cx - gap / 2 - digitW / 2;   // тут сначала 5, потом 4
+    const rightCX = cx + gap / 2 + digitW / 2;  // тут всегда 2
+    const digitCY = cy - digitH * 0.18;
+    const thickness = digitW * 0.15;
+
+    function drawDigit(dcx, dcy, dw, dh, segments, alpha) {
+      const halfW = dw / 2, halfH = dh / 2, th = thickness;
+      const segs = {
+        top: [dcx - halfW + th, dcy - halfH, dw - 2 * th, th],
+        topLeft: [dcx - halfW, dcy - halfH + th * 0.5, th, halfH - th * 0.5],
+        topRight: [dcx + halfW - th, dcy - halfH + th * 0.5, th, halfH - th * 0.5],
+        middle: [dcx - halfW + th, dcy - th / 2, dw - 2 * th, th],
+        bottomLeft: [dcx - halfW, dcy + th * 0.5, th, halfH - th * 0.5],
+        bottomRight: [dcx + halfW - th, dcy + th * 0.5, th, halfH - th * 0.5],
+        bottom: [dcx - halfW + th, dcy + halfH - th, dw - 2 * th, th]
+      };
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      for (const key of segments) {
+        const s = segs[key];
+        // лёгкая "пиксельная" обводка каждого сегмента для чёткости
+        ctx.fillStyle = '#111';
+        ctx.fillRect(s[0] - 1.5, s[1] - 1.5, s[2] + 3, s[3] + 3);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(s[0], s[1], s[2], s[3]);
+      }
+      ctx.restore();
+    }
+    const DIGIT_5 = ['top', 'topLeft', 'middle', 'bottomRight', 'bottom'];
+    const DIGIT_2 = ['top', 'topRight', 'middle', 'bottomLeft', 'bottom'];
+    const DIGIT_4 = ['topLeft', 'topRight', 'middle', 'bottomRight'];
+
+    // ---- Гирлянда: цепочка лампочек по контуру цифры, мигает каждые 0.2с ----
+    const GARLAND_COLORS = ['#ffd400', '#ff3b30', '#2f6fff', '#34c759', '#ffffff', '#b455ff'];
+    const GARLAND_COUNT = 18;
+    function garlandPointsForRect(dcx, dcy, dw, dh) {
+      const pad = 10;
+      const rw = dw + pad * 2, rh = dh + pad * 2;
+      const perim = 2 * (rw + rh);
+      const pts = [];
+      for (let i = 0; i < GARLAND_COUNT; i++) {
+        let d = (i / GARLAND_COUNT) * perim;
+        let x, y;
+        if (d < rw) { x = dcx - rw / 2 + d; y = dcy - rh / 2; }
+        else if (d < rw + rh) { d -= rw; x = dcx + rw / 2; y = dcy - rh / 2 + d; }
+        else if (d < 2 * rw + rh) { d -= rw + rh; x = dcx + rw / 2 - d; y = dcy + rh / 2; }
+        else { d -= 2 * rw + rh; x = dcx - rw / 2; y = dcy + rh / 2 - d; }
+        pts.push({ x, y });
+      }
+      return pts;
+    }
+    function drawGarland(dcx, dcy, dw, dh, elapsed, alpha) {
+      const pts = garlandPointsForRect(dcx, dcy, dw, dh);
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.strokeStyle = '#2a5c2a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      pts.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+
+      const tick = Math.floor(elapsed / 200);
+      pts.forEach((p, i) => {
+        const colorIdx = Math.abs((tick * 97 + i * 131) % GARLAND_COLORS.length);
+        const color = GARLAND_COLORS[colorIdx];
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    // ---- НЛО ----
+    function drawUFO(x, y, tsec, scale) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+      const domeGrad = ctx.createLinearGradient(0, -40, 0, -6);
+      domeGrad.addColorStop(0, '#d5f1ff');
+      domeGrad.addColorStop(1, '#5fa8d8');
+      ctx.fillStyle = domeGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, -14, 26, 26, 0, Math.PI, 0);
+      ctx.fill();
+      const bodyGrad = ctx.createLinearGradient(-70, -10, 70, 20);
+      bodyGrad.addColorStop(0, '#8f96a3');
+      bodyGrad.addColorStop(0.5, '#e4e8ee');
+      bodyGrad.addColorStop(1, '#6b7280');
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 70, 18, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#565c66';
+      ctx.beginPath();
+      ctx.ellipse(0, 11, 46, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        const lx = Math.cos(a) * 62, ly = Math.sin(a) * 15;
+        const on = Math.sin(tsec * 6 + i * 1.3) > 0;
+        ctx.fillStyle = on ? '#fff59d' : '#6a5a20';
+        ctx.beginPath();
+        ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawBeam(ufoX, ufoY, targetX, targetY, extendProgress, alpha) {
+      const bottomY = ufoY + (targetY - ufoY) * extendProgress;
+      const topHalfW = 12, bottomHalfW = 10 + 55 * extendProgress;
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.5;
+      const grad = ctx.createLinearGradient(ufoX, ufoY, ufoX, bottomY);
+      grad.addColorStop(0, 'rgba(90,255,140,0.05)');
+      grad.addColorStop(1, 'rgba(90,255,140,0.55)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(ufoX - topHalfW, ufoY + 8);
+      ctx.lineTo(ufoX + topHalfW, ufoY + 8);
+      ctx.lineTo(targetX + bottomHalfW, bottomY);
+      ctx.lineTo(targetX - bottomHalfW, bottomY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // ---- Таймлайн (мс), точно по раскадровке ----
+    const total = 6000;   // +1 секунда в самом конце (дольше держится статичная сцена)
+    const overlayInEnd = 300;
+    const digitsInStart = 300, digitsInEnd = 500;
+    const ufoStart = 1000, ufoArrive = 1600;
+    const beamExtendEnd = 1900;
+    const abductEnd = 2300;
+    const ufoDepartEnd = 2500;
+    const materializeAt = 2500, flashEnd = 2800;
+    const textStart = 3000, textEnd = 3500;
+    const fadeOutStart = 5600;
+
+    const digit5Top = digitCY - digitH / 2;
+    const ufoTargetX = leftCX, ufoTargetY = digit5Top - 90;
+    const ufoStartPos = { x: -180, y: -140 };
+
+    const TEXT = 'братуха';
+    let startTime = null;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      const tsec = elapsed / 1000;
+      ctx.clearRect(0, 0, w, h);
+
+      // 1. overlay
+      const overlayAlpha = 0.72 * (elapsed < overlayInEnd
+        ? easeOutCubic(clamp01(elapsed / overlayInEnd))
+        : 1) * (elapsed > fadeOutStart ? clamp01(1 - (elapsed - fadeOutStart) / (total - fadeOutStart)) : 1);
+      ctx.save();
+      ctx.fillStyle = `rgba(0,0,0,${overlayAlpha})`;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+
+      const globalAlpha = elapsed > fadeOutStart ? clamp01(1 - (elapsed - fadeOutStart) / (total - fadeOutStart)) : 1;
+      if (globalAlpha <= 0.01) {
+        if (elapsed < total) { requestAnimationFrame(animate); } else { canvas.remove(); }
+        return;
+      }
+
+      // 2. цифры проявляются
+      const digitsAlpha = clamp01((elapsed - digitsInStart) / (digitsInEnd - digitsInStart)) * globalAlpha;
+      if (digitsAlpha > 0) {
+        // правая цифра "2" — присутствует всегда с момента появления
+        drawDigit(rightCX, digitCY, digitW, digitH, DIGIT_2, digitsAlpha);
+        drawGarland(rightCX, digitCY, digitW, digitH, elapsed, digitsAlpha);
+
+        // левая позиция: "5" до похищения, пусто во время полёта НЛО, "4" после материализации
+        if (elapsed < abductEnd) {
+          // во время похищения (1900-2300) цифра 5 поднимается по лучу и уменьшается
+          if (elapsed >= beamExtendEnd) {
+            const at = clamp01((elapsed - beamExtendEnd) / (abductEnd - beamExtendEnd));
+            const riseT = easeInOutCubic(at);
+            const dy = -(digit5Top - ufoTargetY - 10) * riseT;
+            const scale = 1 - riseT * 0.85;
+            const alpha5 = digitsAlpha * (1 - riseT * 0.9);
+            ctx.save();
+            ctx.translate(leftCX, digitCY + dy);
+            ctx.scale(scale, scale);
+            drawDigit(0, 0, digitW, digitH, DIGIT_5, alpha5);
+            ctx.restore();
+          } else {
+            drawDigit(leftCX, digitCY, digitW, digitH, DIGIT_5, digitsAlpha);
+            drawGarland(leftCX, digitCY, digitW, digitH, elapsed, digitsAlpha);
+          }
+        } else if (elapsed >= materializeAt) {
+          drawDigit(leftCX, digitCY, digitW, digitH, DIGIT_4, digitsAlpha);
+          drawGarland(leftCX, digitCY, digitW, digitH, elapsed, digitsAlpha);
+          // вспышка материализации
+          if (elapsed < flashEnd) {
+            const ft = 1 - clamp01((elapsed - materializeAt) / (flashEnd - materializeAt));
+            ctx.save();
+            ctx.globalAlpha = ft * 0.85 * globalAlpha;
+            const g = ctx.createRadialGradient(leftCX, digitCY, 0, leftCX, digitCY, digitW * 0.9);
+            g.addColorStop(0, 'rgba(255,255,255,0.95)');
+            g.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, w, h);
+            ctx.restore();
+          }
+        }
+        // между abductEnd и materializeAt (2300-2500) слева пусто — НЛО улетает с добычей
+      }
+
+      // 3. НЛО: прилёт по дуге -> луч -> похищение -> быстрый улёт вверх
+      if (elapsed >= ufoStart && elapsed < ufoDepartEnd) {
+        let ux, uy, uScale = 1;
+        if (elapsed < ufoArrive) {
+          const t = easeOutCubic(clamp01((elapsed - ufoStart) / (ufoArrive - ufoStart)));
+          ux = ufoStartPos.x + (ufoTargetX - ufoStartPos.x) * t;
+          uy = ufoStartPos.y + (ufoTargetY - ufoStartPos.y) * t - Math.sin(t * Math.PI) * 70;
+        } else if (elapsed < ufoDepartEnd) {
+          ux = ufoTargetX; uy = ufoTargetY;
+          if (elapsed >= abductEnd) {
+            const dt = clamp01((elapsed - abductEnd) / (ufoDepartEnd - abductEnd));
+            uy = ufoTargetY - dt * dt * (h * 0.9 + 200);
+            uScale = 1 - dt * 0.15;
+          }
+        }
+        const ufoAlpha = globalAlpha;
+        ctx.save();
+        ctx.globalAlpha = ufoAlpha;
+        if (elapsed >= ufoArrive && elapsed < beamExtendEnd) {
+          const bt = clamp01((elapsed - ufoArrive) / (beamExtendEnd - ufoArrive));
+          drawBeam(ux, uy, ufoTargetX, digit5Top + 6, bt, ufoAlpha);
+        } else if (elapsed >= beamExtendEnd && elapsed < abductEnd) {
+          drawBeam(ux, uy, ufoTargetX, digit5Top + 6, 1, ufoAlpha);
+        }
+        ctx.restore();
+        drawUFO(ux, uy, tsec, uScale);
+      }
+
+      // 4. надпись "братуха" — печатная машинка
+      if (elapsed >= textStart) {
+        const chars = Math.round(clamp01((elapsed - textStart) / (textEnd - textStart)) * TEXT.length);
+        const shown = TEXT.slice(0, chars);
+        const textAlpha = globalAlpha;
+        ctx.save();
+        ctx.globalAlpha = textAlpha;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${Math.round(digitH * 0.16)}px "Courier New", monospace`;
+        const textY = digitCY + digitH / 2 + digitH * 0.22;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillText(shown, cx + 3, textY + 3);
+        ctx.fillStyle = '#ff9a2e';
+        ctx.fillText(shown, cx, textY);
+        ctx.restore();
+      }
+
+      if (elapsed < total) {
+        requestAnimationFrame(animate);
+      } else {
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
+  });
+
+  // ============================================================
+  // spiderman – отсылка на "Человек-паук 2" (сцена с поездом): сайт
+  // буквально разделяется по вертикали на левую и правую половину и
+  // САМ начинает разъезжаться в стороны, затем из центра вылетает
+  // паутина, летит к краям, догоняет и сдерживает дальнейшее расхождение,
+  // а после стягивает половины обратно с эффектом упругой отдачи.
+  // Обе половины — настоящий контент сайта (клон DOM), а не рисунок.
+  // ============================================================
+  addEasterEgg('spiderman', 'SPIDERMAN', function() {
+    const w = window.innerWidth, h = window.innerHeight;
+
+    // Настоящие половины сайта — клоны body, обрезанные clip-path'ом.
+    // Canvas не умеет копировать содержимое других canvas при cloneNode,
+    // поэтому вручную переносим пиксели каждого canvas на сайте в клон.
+    const originalCanvases = Array.from(document.body.querySelectorAll('canvas'));
+    function cloneHalf(clipPath) {
+      const clone = document.body.cloneNode(true);
+      clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+      clone.style.cssText = `position:fixed;top:0;left:0;width:100vw;height:100vh;margin:0;pointer-events:none;overflow:hidden;z-index:299000;clip-path:${clipPath};-webkit-clip-path:${clipPath};background:inherit;`;
+      const clonedCanvases = clone.querySelectorAll('canvas');
+      clonedCanvases.forEach((cc, i) => {
+        const orig = originalCanvases[i];
+        if (orig && orig.width > 0 && orig.height > 0) {
+          try { cc.getContext('2d').drawImage(orig, 0, 0); } catch (e) { /* игнорируем недоступные canvas */ }
+        }
+      });
+      return clone;
+    }
+    const leftClone = cloneHalf('inset(0 50% 0 0)');
+    const rightClone = cloneHalf('inset(0 0 0 50%)');
+    document.body.appendChild(leftClone);
+    document.body.appendChild(rightClone);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+    const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const cx = w / 2, cy = h / 2;
+    const maxOffset = w * 0.16;
+
+    // Точки крепления — углы и середины боковых краёв: левые тянутся
+    // с левой половиной, правые — с правой
+    const corners = [
+      { baseX: 0, baseY: 0, side: 'left' },
+      { baseX: 0, baseY: h, side: 'left' },
+      { baseX: 0, baseY: h / 2, side: 'left' },
+      { baseX: w, baseY: 0, side: 'right' },
+      { baseX: w, baseY: h, side: 'right' },
+      { baseX: w, baseY: h / 2, side: 'right' }
+    ];
+
+    function drawWeb(offsetX, reach, alpha) {
+      const leftOffset = -offsetX, rightOffset = offsetX;
+      const tension = clamp01(Math.abs(offsetX) / maxOffset);
+      const pts = corners.map(c => ({
+        x: c.baseX + (c.side === 'left' ? leftOffset : rightOffset),
+        y: c.baseY
+      }));
+      // нить летит к текущему (уже смещённому) положению угла — паутина словно
+      // "догоняет" разъезжающиеся половины, а не бьёт в их исходную позицию
+      const reachPts = pts.map(p => ({
+        x: cx + (p.x - cx) * reach,
+        y: cy + (p.y - cy) * reach
+      }));
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1.4;
+      ctx.shadowColor = 'rgba(255,255,255,0.6)';
+      ctx.shadowBlur = 4;
+
+      // просто нити, выстреленные из центра к краям — без колец и без
+      // замкнутых фигур, как настоящая паутина Человека-паука
+      for (const p of reachPts) {
+        const dx = p.x - cx, dy = p.y - cy;
+        const len = Math.hypot(dx, dy) || 1;
+        const perpX = -dy / len, perpY = dx / len;
+        const sag = (1 - tension) * 20;
+        const midX = (cx + p.x) / 2 + perpX * sag;
+        const midY = (cy + p.y) / 2 + perpY * sag;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.quadraticCurveTo(midX, midY, p.x, p.y);
+        ctx.stroke();
+      }
+
+      // светящийся кончик на растущей нити, пока она ещё летит к краю
+      if (reach < 0.98) {
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.shadowBlur = 10;
+        for (const p of reachPts) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // центральный узел паутины
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Таймлайн: сайт САМ начинает расходиться в стороны -> из центра
+    // вылетает паутина и летит к краям, догоняя разъезжающиеся половины ->
+    // натягивается и сдерживает дальнейшее расхождение -> стягивает половины
+    // обратно с упругой отдачей -> удержание -> исчезновение
+    const total = 5800;
+    const freeDriftEnd = 1000;      // сайт расходится сам, паутины ещё нет
+    const webShootStart = 900, webShootEnd = 1500; // паутина летит к краям
+    const restrainedEnd = 2500;     // паутина сдерживает — расхождение продолжается, но медленно, до предела
+    const holdPeakEnd = 3000;       // натянута, держит на пределе
+    const pullBackEnd = 3900;       // стягивает половины обратно
+    const overshootEnd = 4300;
+    const bounceEnd = 4600;
+    const settleEnd = 4900;
+    const fadeStart = 5200;
+
+    const preWebOffset = maxOffset * 0.55; // насколько сайт успевает разъехаться сам, до натяжения паутины
+
+    let startTime = null;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      ctx.clearRect(0, 0, w, h);
+
+      let offset;
+      if (elapsed < freeDriftEnd) {
+        // свободное расхождение — паутины ещё нет
+        offset = preWebOffset * easeOutCubic(clamp01(elapsed / freeDriftEnd));
+      } else if (elapsed < restrainedEnd) {
+        // паутина уже поймала края и сдерживает, но расхождение по инерции
+        // ещё чуть продолжается — медленно, до предела
+        const t = easeOutCubic(clamp01((elapsed - freeDriftEnd) / (restrainedEnd - freeDriftEnd)));
+        offset = preWebOffset + (maxOffset - preWebOffset) * t;
+      } else if (elapsed < holdPeakEnd) {
+        offset = maxOffset; // натянута до предела, держит
+      } else if (elapsed < pullBackEnd) {
+        const t = easeInOutCubic(clamp01((elapsed - holdPeakEnd) / (pullBackEnd - holdPeakEnd)));
+        offset = maxOffset * (1 - t); // стягивает обратно к центру
+      } else if (elapsed < overshootEnd) {
+        const t = easeInOutCubic(clamp01((elapsed - pullBackEnd) / (overshootEnd - pullBackEnd)));
+        offset = -maxOffset * 0.22 * t; // лёгкий перелёт мимо центра
+      } else if (elapsed < bounceEnd) {
+        const t = easeInOutCubic(clamp01((elapsed - overshootEnd) / (bounceEnd - overshootEnd)));
+        offset = -maxOffset * 0.22 + (maxOffset * 0.07 - (-maxOffset * 0.22)) * t;
+      } else if (elapsed < settleEnd) {
+        const t = easeInOutCubic(clamp01((elapsed - bounceEnd) / (settleEnd - bounceEnd)));
+        offset = maxOffset * 0.07 * (1 - t);
+      } else {
+        offset = 0;
+      }
+
+      leftClone.style.transform = `translateX(${-offset}px)`;
+      rightClone.style.transform = `translateX(${offset}px)`;
+
+      const fadeAlpha = elapsed > fadeStart ? clamp01(1 - (elapsed - fadeStart) / (total - fadeStart)) : 1;
+      leftClone.style.opacity = String(fadeAlpha);
+      rightClone.style.opacity = String(fadeAlpha);
+
+      // в зазоре между разъехавшимися половинами раньше было видно исходный,
+      // несмещённый сайт под клонами (выглядело как "дубликат") — теперь там тьма
+      const gapHalfWidth = Math.max(0, offset);
+      if (gapHalfWidth > 0.5) {
+        ctx.save();
+        ctx.globalAlpha = fadeAlpha;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(cx - gapHalfWidth, 0, gapHalfWidth * 2, h);
+        ctx.restore();
+      }
+
+      const webReach = clamp01((elapsed - webShootStart) / (webShootEnd - webShootStart));
+      if (webReach > 0) drawWeb(offset, webReach, fadeAlpha);
+
+      if (elapsed < total) {
+        requestAnimationFrame(animate);
+      } else {
+        leftClone.remove();
+        rightClone.remove();
+        canvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
+  });
 
   
   
