@@ -137,7 +137,7 @@
     }
 
 
-canvas {
+canvas:not(#pixel-canvas) {
   touch-action: none !important;
   user-select: none !important;
   -webkit-user-select: none !important;
@@ -551,15 +551,53 @@ window.redraw = redraw;
   @keyframes leafall { 0% { transform: translateY(0) rotate(0deg); } 100% { transform: translateY(100vh) rotate(720deg); } }
   @keyframes cometFall { 0% { transform: translate(0, 0) scale(1); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate(-80px, 80vh) scale(0.2); opacity: 0; } }
 
-  /* Снеговик Олаф */
+  /* Снеговик Олаф — теперь пиксель-арт canvas, а не эмодзи */
   .olaf {
     position: fixed;
     bottom: 20px;
     left: 20px;
     z-index: 400;
-    font-size: 40px;
-    cursor: default;
+    cursor: pointer;
     pointer-events: auto;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.35));
+  }
+  .olaf-speech {
+    position: fixed;
+    z-index: 401;
+    background: #fff;
+    color: #1a1a1a;
+    border: 2px solid #1a1a1a;
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: Arial, sans-serif;
+    max-width: 190px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    transform: translateY(6px);
+  }
+  .olaf-speech.show { opacity: 1; transform: translateY(0); }
+  .olaf-speech::after {
+    content: '';
+    position: absolute;
+    bottom: -8px; left: 22px;
+    width: 0; height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid #1a1a1a;
+  }
+  .olaf-speech::before {
+    content: '';
+    position: absolute;
+    bottom: -5px; left: 24px;
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid #fff;
+    z-index: 1;
   }
 
   /* Большой лист (особый) */
@@ -578,10 +616,51 @@ window.redraw = redraw;
     transition: transform 0.5s, opacity 0.5s;
   }
 
-  /* Курсор-расенган */
-  body.rasengan-cursor {
-    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' stroke='%2300f' stroke-width='3' fill='none' stroke-dasharray='8 4'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%2300f'/%3E%3C/svg%3E") 16 16, auto;
+  /* Расенган — вращающийся элемент, следующий за курсором/пальцем
+     (CSS-курсор не умеет анимироваться, поэтому это настоящий DOM-элемент) */
+  .rasengan-el {
+    position: fixed;
+    width: 84px; height: 84px;
+    margin-left: -42px; margin-top: -42px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 999999;
+    background: radial-gradient(circle at center,
+      #ffffff 0%, #d3f3ff 10%, #8fe0ff 24%, #3fa9f5 42%, #1a63c9 60%, rgba(20,50,140,0.25) 74%, transparent 80%);
+    box-shadow: 0 0 22px 6px rgba(70,160,255,0.55), 0 0 46px 16px rgba(40,110,255,0.3);
   }
+  .rasengan-el::before {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg,
+      rgba(255,255,255,0) 0deg, rgba(170,225,255,0.65) 35deg, rgba(255,255,255,0) 80deg,
+      rgba(170,225,255,0.65) 150deg, rgba(255,255,255,0) 195deg,
+      rgba(170,225,255,0.65) 260deg, rgba(255,255,255,0) 310deg,
+      rgba(170,225,255,0.65) 360deg);
+    mix-blend-mode: screen;
+    animation: rasenganSpin 0.9s linear infinite;
+  }
+  .rasengan-el::after {
+    content: '';
+    position: absolute; inset: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at center, #ffffff 0%, #eafcff 40%, transparent 75%);
+    animation: rasenganPulse 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes rasenganSpin { to { transform: rotate(360deg); } }
+  @keyframes rasenganPulse { from { opacity: 0.75; transform: scale(0.92); } to { opacity: 1; transform: scale(1.05); } }
+  .rasengan-star {
+    position: fixed;
+    width: 3px; height: 3px;
+    background: #bfe9ff;
+    border-radius: 50%;
+    box-shadow: 0 0 5px 1px #6fc3ff;
+    pointer-events: none;
+    z-index: 999998;
+    animation: rasenganStarFade linear infinite;
+  }
+  @keyframes rasenganStarFade { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
 
   /* Шляпа Хайзенберга */
   .heisenberg-hat { position: relative; width: 240px; height: 140px; margin: 0 auto; }
@@ -625,10 +704,6 @@ window.redraw = redraw;
   .blue-flame { position: absolute; width: 100%; height: 100%; pointer-events: none; background: radial-gradient(circle, rgba(0,100,255,0.4) 0%, transparent 70%); animation: flamePulse 1.5s infinite; }
   @keyframes flamePulse { 0% { transform: scale(0.9); opacity: 0.7; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.7; } }
 
-  /* Портал Bleach */
-  .bleach-portal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; background: radial-gradient(circle, rgba(0,0,0,1) 40%, rgba(0,0,0,0.7) 70%, transparent 100%); border-radius: 50%; z-index: 500; animation: portalOpen 0.5s ease-out; box-shadow: 0 0 40px 10px rgba(0,0,0,0.8); }
-  @keyframes portalOpen { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
-  .bleach-butterfly { position: fixed; font-size: 24px; z-index: 600; pointer-events: none; transition: transform 2s, opacity 2s; }
 
   /* Aard сдувание пикселей */
   @keyframes pixelBlowDown { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(100vh); opacity: 0; } }
@@ -784,42 +859,287 @@ easterInput.addEventListener('keydown', function(e) {
   }
   addEasterEgg('matrix', 'MATRIX', triggerMatrixRain);
 
-  // bleach – портал + разлетающиеся бабочки
+  // bleach – врата Сенкаймон открываются, из проёма вылетают адские бабочки. 5 секунд.
   function triggerBleachPortal() {
-    const portal = document.createElement('div');
-    portal.className = 'bleach-portal';
-    document.body.appendChild(portal);
-    setTimeout(() => portal.remove(), 5000);
+    const w = window.innerWidth, h = window.innerHeight;
+    const bcanvas = document.createElement('canvas');
+    bcanvas.width = w; bcanvas.height = h;
+    bcanvas.style.cssText = 'position:fixed;top:0;left:0;z-index:300000;pointer-events:none;background:transparent;';
+    document.body.appendChild(bcanvas);
+    const bctx = bcanvas.getContext('2d');
 
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
-    for (let i = 0; i < 35; i++) {
-      const butterfly = document.createElement('div');
-      butterfly.textContent = '🦋';
-      butterfly.className = 'bleach-butterfly';
-      butterfly.style.left = centerX + 'px';
-      butterfly.style.top = centerY + 'px';
-      butterfly.style.transform = 'translate(-50%, -50%)';
-      document.body.appendChild(butterfly);
+    const clamp01 = t => Math.max(0, Math.min(1, t));
+    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+    const easeInCubic = t => t * t * t;
 
-      const angle = Math.random() * 2 * Math.PI;
-      const distance = 200 + Math.random() * 300;
-      const dx = Math.cos(angle) * distance;
-      const dy = Math.sin(angle) * distance;
+    const gateH = Math.min(560, h * 0.74);
+    const gateW = gateH * 0.62;
+    const gateCX = w / 2;
+    const gateTopY = h / 2 - gateH / 2;
+    const gateBottomY = h / 2 + gateH / 2;
+    const pillarW = gateW * 0.13;
+    const leftPillarX = gateCX - gateW / 2;
+    const rightPillarX = gateCX + gateW / 2 - pillarW;
+    const openingX0 = leftPillarX + pillarW;
+    const openingX1 = rightPillarX;
+    const openingCX = (openingX0 + openingX1) / 2;
 
-      setTimeout(() => {
-        butterfly.style.transition = 'transform 1.5s ease-out, opacity 1.5s';
-        butterfly.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-        butterfly.style.opacity = '0';
-      }, 300);
-
-      setTimeout(() => butterfly.remove(), 2500);
+    function drawPillar(px) {
+      const grad = bctx.createLinearGradient(px, 0, px + pillarW, 0);
+      grad.addColorStop(0, '#8f8672');
+      grad.addColorStop(0.15, '#d9d0b8');
+      grad.addColorStop(0.5, '#efe8d4');
+      grad.addColorStop(0.85, '#c9c0a6');
+      grad.addColorStop(1, '#847b66');
+      bctx.fillStyle = grad;
+      bctx.fillRect(px, gateTopY, pillarW, gateBottomY - gateTopY);
+      // горизонтальные членения
+      bctx.strokeStyle = 'rgba(90,80,60,0.35)';
+      bctx.lineWidth = 1.5;
+      for (let i = 1; i < 5; i++) {
+        const y = gateTopY + (gateBottomY - gateTopY) * (i / 5);
+        bctx.beginPath(); bctx.moveTo(px, y); bctx.lineTo(px + pillarW, y); bctx.stroke();
+      }
+      // золотая пластина-эмблема
+      const plateY = gateTopY + (gateBottomY - gateTopY) * 0.62;
+      bctx.fillStyle = '#8a6a2a';
+      bctx.fillRect(px + pillarW * 0.22, plateY, pillarW * 0.56, pillarW * 0.56);
+      bctx.strokeStyle = '#4a3510';
+      bctx.lineWidth = 1.5;
+      bctx.strokeRect(px + pillarW * 0.22, plateY, pillarW * 0.56, pillarW * 0.56);
     }
 
-    ctx.save();
-    ctx.fillStyle = 'rgba(0,100,255,0.5)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    setTimeout(() => { ctx.restore(); safeRedraw(); }, 3000);
+    function drawRoof(riseT) {
+      const roofY = gateTopY - 10 * riseT;
+      const overhang = gateW * 0.14;
+      const roofH = gateH * 0.09;
+      bctx.save();
+      bctx.globalAlpha = riseT;
+      const grad = bctx.createLinearGradient(0, roofY - roofH, 0, roofY + roofH * 0.3);
+      grad.addColorStop(0, '#2a2015');
+      grad.addColorStop(1, '#100c08');
+      bctx.fillStyle = grad;
+      bctx.beginPath();
+      bctx.moveTo(leftPillarX - overhang, roofY + roofH * 0.35);
+      bctx.quadraticCurveTo(gateCX, roofY - roofH * 1.1, rightPillarX + pillarW + overhang, roofY + roofH * 0.35);
+      bctx.lineTo(rightPillarX + pillarW + overhang * 0.7, roofY + roofH * 0.7);
+      bctx.quadraticCurveTo(gateCX, roofY - roofH * 0.5, leftPillarX - overhang * 0.7, roofY + roofH * 0.7);
+      bctx.closePath();
+      bctx.fill();
+      // бахрома-рейки снизу перемычки
+      bctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      bctx.lineWidth = 1;
+      const slats = 26;
+      for (let i = 0; i <= slats; i++) {
+        const t = i / slats;
+        const x = leftPillarX - overhang * 0.7 + (rightPillarX + pillarW + overhang * 0.7 - (leftPillarX - overhang * 0.7)) * t;
+        const yTop = roofY + roofH * 0.7 - Math.sin(t * Math.PI) * roofH * 0.15;
+        bctx.beginPath(); bctx.moveTo(x, yTop); bctx.lineTo(x, yTop + roofH * 0.35); bctx.stroke();
+      }
+      bctx.restore();
+    }
+
+    function drawMist(tsec, alpha) {
+      bctx.save();
+      bctx.globalAlpha = alpha;
+      const wisps = [
+        { x: leftPillarX - gateW * 0.25, y: gateBottomY - gateH * 0.35, r: gateW * 0.5, speed: 0.4, seed: 0 },
+        { x: rightPillarX + pillarW + gateW * 0.25, y: gateBottomY - gateH * 0.3, r: gateW * 0.55, speed: 0.35, seed: 2 },
+        { x: leftPillarX - gateW * 0.1, y: gateTopY + gateH * 0.15, r: gateW * 0.35, speed: 0.5, seed: 4 },
+        { x: rightPillarX + pillarW + gateW * 0.15, y: gateTopY + gateH * 0.2, r: gateW * 0.38, speed: 0.45, seed: 6 }
+      ];
+      for (const wsp of wisps) {
+        const ox = Math.sin(tsec * wsp.speed + wsp.seed) * 18;
+        const oy = Math.cos(tsec * wsp.speed * 0.7 + wsp.seed) * 12;
+        const g = bctx.createRadialGradient(wsp.x + ox, wsp.y + oy, 0, wsp.x + ox, wsp.y + oy, wsp.r);
+        g.addColorStop(0, 'rgba(255,255,255,0.5)');
+        g.addColorStop(0.6, 'rgba(240,245,250,0.18)');
+        g.addColorStop(1, 'rgba(240,245,250,0)');
+        bctx.fillStyle = g;
+        bctx.beginPath();
+        bctx.arc(wsp.x + ox, wsp.y + oy, wsp.r, 0, Math.PI * 2);
+        bctx.fill();
+      }
+      bctx.restore();
+    }
+
+    function drawOpening(openT, alpha) {
+      if (openT <= 0) return;
+      const halfW = ((openingX1 - openingX0) / 2) * openT;
+      const grad = bctx.createLinearGradient(openingCX - halfW, 0, openingCX + halfW, 0);
+      grad.addColorStop(0, 'rgba(210,225,255,0.15)');
+      grad.addColorStop(0.5, 'rgba(255,255,255,0.98)');
+      grad.addColorStop(1, 'rgba(210,225,255,0.15)');
+      bctx.save();
+      bctx.globalAlpha = alpha;
+      bctx.fillStyle = grad;
+      bctx.fillRect(openingCX - halfW, gateTopY + 4, halfW * 2, (gateBottomY - gateTopY) - 8);
+      // мягкое свечение по краям проёма
+      bctx.globalAlpha = alpha * 0.6;
+      const glow = bctx.createRadialGradient(openingCX, h / 2, 0, openingCX, h / 2, halfW * 1.6 + 40);
+      glow.addColorStop(0, 'rgba(255,255,255,0.55)');
+      glow.addColorStop(1, 'rgba(255,255,255,0)');
+      bctx.fillStyle = glow;
+      bctx.fillRect(openingCX - halfW * 2 - 40, gateTopY - 40, halfW * 4 + 80, (gateBottomY - gateTopY) + 80);
+      bctx.restore();
+    }
+
+    // ---- Адская бабочка (Hell Butterfly): тёмные крылья с прожилками,
+    // пурпурно-розовая волнистая кайма, длинный хвост-шлейф ----
+    function drawHellButterfly(x, y, angle, wingPhase, size, alpha) {
+      const flap = Math.sin(wingPhase);
+      const spread = 0.62 + Math.abs(flap) * 0.34;
+
+      const wingGrad = bctx.createRadialGradient(0, 0, 0, 0, 0, size);
+      wingGrad.addColorStop(0, 'rgba(60,58,68,0.95)');
+      wingGrad.addColorStop(1, 'rgba(24,23,30,0.92)');
+
+      bctx.save();
+      bctx.globalAlpha = alpha;
+      bctx.translate(x, y);
+      bctx.rotate(angle);
+
+      function wingHalf(side) {
+        // верхнее крыло — широкий веер с прожилками
+        bctx.save();
+        bctx.rotate(side * 0.12 * (1 - spread * 0.25));
+        bctx.beginPath();
+        bctx.moveTo(0, 0);
+        bctx.bezierCurveTo(side * size * 0.3, -size * 0.75 * spread, side * size * 0.85, -size * 0.7 * spread, side * size * 0.95, -size * 0.15);
+        bctx.bezierCurveTo(side * size * 0.85, size * 0.15, side * size * 0.55, size * 0.32, side * size * 0.15, size * 0.08);
+        bctx.closePath();
+        bctx.fillStyle = wingGrad;
+        bctx.fill();
+        bctx.strokeStyle = 'rgba(8,8,12,0.55)';
+        bctx.lineWidth = 0.7;
+        for (let i = 1; i <= 4; i++) {
+          bctx.beginPath();
+          bctx.moveTo(0, 0);
+          bctx.lineTo(side * size * (0.22 + i * 0.17), -size * (0.08 + i * 0.14) * spread);
+          bctx.stroke();
+        }
+        bctx.restore();
+
+        // нижнее крыло — волнистая пурпурная кайма + хвост
+        bctx.save();
+        bctx.rotate(side * 0.32);
+        bctx.beginPath();
+        bctx.moveTo(0, 0);
+        bctx.bezierCurveTo(side * size * 0.22, size * 0.32 * spread, side * size * 0.48, size * 0.5 * spread, side * size * 0.5, size * 0.6);
+        const waves = 3;
+        for (let i = 0; i <= waves; i++) {
+          const t = i / waves;
+          const wx = side * size * (0.5 - t * 0.32);
+          const wy = size * (0.6 + Math.sin(t * Math.PI * 2) * 0.05 + t * 0.13);
+          bctx.lineTo(wx, wy);
+        }
+        bctx.closePath();
+        bctx.fillStyle = wingGrad;
+        bctx.fill();
+        bctx.strokeStyle = 'rgba(215,60,165,0.6)';
+        bctx.lineWidth = 1.2;
+        bctx.stroke();
+
+        // хвост-шлейф
+        bctx.beginPath();
+        bctx.moveTo(side * size * 0.28, size * 0.5);
+        bctx.quadraticCurveTo(side * size * 0.14, size * 1.0, side * size * 0.04, size * 1.35);
+        bctx.strokeStyle = 'rgba(30,29,36,0.65)';
+        bctx.lineWidth = 1;
+        bctx.stroke();
+        bctx.restore();
+      }
+
+      wingHalf(-1);
+      wingHalf(1);
+
+      // тело, голова, усики
+      bctx.fillStyle = '#1a1a20';
+      bctx.beginPath();
+      bctx.ellipse(0, 0, size * 0.055, size * 0.15, 0, 0, Math.PI * 2);
+      bctx.fill();
+      bctx.beginPath();
+      bctx.arc(0, -size * 0.13, size * 0.045, 0, Math.PI * 2);
+      bctx.fill();
+      bctx.strokeStyle = '#2c2c34';
+      bctx.lineWidth = 0.6;
+      bctx.beginPath();
+      bctx.moveTo(0, -size * 0.15); bctx.quadraticCurveTo(-size * 0.09, -size * 0.25, -size * 0.13, -size * 0.28);
+      bctx.moveTo(0, -size * 0.15); bctx.quadraticCurveTo(size * 0.09, -size * 0.25, size * 0.13, -size * 0.28);
+      bctx.stroke();
+
+      bctx.restore();
+    }
+
+    // ---- Таймлайн ----
+    const total = 5000;
+    const riseEnd = 800;
+    const openEnd = 1500;
+    const flightStart = 1300, flightEnd = 4300;
+    const fadeStart = 4300;
+
+    const flies = [];
+    const flyCount = 40;
+    for (let i = 0; i < flyCount; i++) {
+      flies.push({
+        spawnDelay: Math.random() * (flightEnd - flightStart - 400),
+        offsetOnGate: Math.random(),
+        angle: -Math.PI / 2 + (Math.random() - 0.5) * 1.6,
+        speed: 70 + Math.random() * 90,
+        wobble: 0.4 + Math.random() * 0.8,
+        wobbleFreq: 1 + Math.random() * 1.8,
+        size: 16 + Math.random() * 14,
+        wingPhase: Math.random() * Math.PI * 2
+      });
+    }
+
+    let startTime = null;
+
+    function animate(ts) {
+      if (!startTime) startTime = ts;
+      const elapsed = ts - startTime;
+      const tsec = elapsed / 1000;
+      bctx.clearRect(0, 0, w, h);
+
+      const structAlpha = elapsed > fadeStart ? clamp01(1 - (elapsed - fadeStart) / (total - fadeStart)) : 1;
+      const riseT = easeOutCubic(clamp01(elapsed / riseEnd));
+
+      if (riseT > 0) {
+        drawMist(tsec, structAlpha * 0.85);
+        drawPillar(leftPillarX);
+        drawPillar(rightPillarX);
+        drawRoof(riseT);
+      }
+
+      const openT = easeOutCubic(clamp01((elapsed - riseEnd * 0.4) / (openEnd - riseEnd * 0.4)));
+      drawOpening(openT, structAlpha);
+
+      for (const f of flies) {
+        const localT = elapsed - flightStart - f.spawnDelay;
+        if (localT < 0) continue;
+        const spawnX = openingX0 + (openingX1 - openingX0) * f.offsetOnGate;
+        const spawnY = gateTopY + (gateBottomY - gateTopY) * (0.3 + Math.random() * 0);
+        const dist = f.speed * (localT / 1000);
+        const wob = Math.sin(localT / 1000 * f.wobbleFreq) * f.wobble * 22;
+        const dirX = Math.cos(f.angle), dirY = Math.sin(f.angle);
+        const perpX = -dirY, perpY = dirX;
+        const x = spawnX + dirX * dist + perpX * wob;
+        const y = spawnY + dirY * dist + perpY * wob;
+        const flyAngle = Math.atan2(dirY, dirX) + Math.PI / 2 + Math.sin(localT / 1000 * f.wobbleFreq) * 0.2;
+        const spawnAlpha = clamp01(localT / 200);
+        const edgeAlpha = (x < -60 || x > w + 60 || y < -60 || y > h + 60) ? 0 : 1;
+        const alpha = Math.min(spawnAlpha, edgeAlpha) * structAlpha;
+        if (alpha > 0.01) drawHellButterfly(x, y, flyAngle, f.wingPhase + localT * 0.01, f.size, alpha);
+      }
+
+      if (elapsed < total) {
+        requestAnimationFrame(animate);
+      } else {
+        bcanvas.remove();
+      }
+    }
+
+    requestAnimationFrame(animate);
   }
   addEasterEgg('bleach', 'BLEACH', triggerBleachPortal);
 
@@ -5049,6 +5369,156 @@ function clearWeather() {
   nextEffectTimeout = null;
 }
 
+// ---------- Пиксель-арт Олаф ----------
+function buildOlafSprite() {
+  const OLAF_HAT = '#1a1a1a';
+  const OLAF_HAT_BAND = '#c62828';
+  const OLAF_SNOW = '#f5f9ff';
+  const OLAF_EYE = '#141414';
+  const OLAF_NOSE = '#ff8c1a';
+  const OLAF_SCARF = '#d32f2f';
+  const OLAF_SCARF_DARK = '#9e1414';
+  const OLAF_STICK = '#6b4423';
+  const OLAF_COAL = '#141414';
+
+  const map = new Map();
+  function paint(gx, gy, gw, gh, color) {
+    for (let y = gy; y < gy + gh; y++) for (let x = gx; x < gx + gw; x++) map.set(x + ',' + y, color);
+  }
+
+  // тело — три "снежных кома", каждый несколькими полосами разной ширины
+  paint(9, 39, 18, 2, OLAF_SNOW); paint(5, 29, 26, 10, OLAF_SNOW); paint(8, 27, 20, 2, OLAF_SNOW); // нижний ком
+  paint(11, 25, 14, 2, OLAF_SNOW); paint(8, 18, 20, 7, OLAF_SNOW); paint(12, 17, 12, 1, OLAF_SNOW); // средний ком
+  paint(13, 15, 10, 2, OLAF_SNOW); paint(11, 9, 14, 6, OLAF_SNOW); paint(14, 8, 8, 1, OLAF_SNOW);   // голова
+
+  // шляпа
+  paint(14, 0, 8, 6, OLAF_HAT);
+  paint(14, 4, 8, 2, OLAF_HAT_BAND);
+  paint(10, 6, 16, 2, OLAF_HAT);
+
+  // лицо
+  paint(14, 11, 2, 2, OLAF_EYE);
+  paint(19, 11, 2, 2, OLAF_EYE);
+  paint(16, 12, 3, 2, OLAF_NOSE);
+  paint(13, 15, 1, 1, OLAF_EYE); paint(15, 16, 1, 1, OLAF_EYE);
+  paint(18, 16, 1, 1, OLAF_EYE); paint(20, 15, 1, 1, OLAF_EYE);
+
+  // шарф
+  paint(9, 15, 18, 3, OLAF_SCARF);
+  paint(14, 18, 6, 5, OLAF_SCARF);
+  paint(13, 23, 1, 1, OLAF_SCARF_DARK); paint(16, 23, 1, 1, OLAF_SCARF_DARK); paint(19, 23, 1, 1, OLAF_SCARF_DARK);
+
+  // пуговицы
+  paint(17, 20, 2, 2, OLAF_COAL);
+  paint(17, 24, 2, 2, OLAF_COAL);
+  paint(17, 30, 2, 2, OLAF_COAL);
+  paint(17, 34, 2, 2, OLAF_COAL);
+
+  // руки-веточки
+  paint(5, 19, 4, 2, OLAF_STICK); paint(1, 16, 4, 2, OLAF_STICK);
+  paint(0, 13, 2, 2, OLAF_STICK); paint(3, 13, 2, 2, OLAF_STICK); paint(1, 14, 2, 2, OLAF_STICK);
+  paint(27, 19, 4, 2, OLAF_STICK); paint(31, 16, 4, 2, OLAF_STICK);
+  paint(30, 13, 2, 2, OLAF_STICK); paint(33, 13, 2, 2, OLAF_STICK); paint(32, 14, 2, 2, OLAF_STICK);
+
+  // уголь под ногами
+  paint(10, 41, 3, 2, OLAF_COAL); paint(14, 42, 3, 2, OLAF_COAL);
+  paint(19, 42, 3, 2, OLAF_COAL); paint(23, 41, 3, 2, OLAF_COAL);
+
+  const cells = [];
+  for (const [key, color] of map) {
+    const [gx, gy] = key.split(',').map(Number);
+    cells.push({ gx, gy, color });
+  }
+  return cells;
+}
+const OLAF_CELLS = buildOlafSprite();
+const OLAF_GRID_W = 36, OLAF_GRID_H = 44;
+const OLAF_LINES = [
+  'Я люблю жаркие объятия!',
+  'Хочешь обниму?',
+  'А снег совсем как я!',
+  'Привет, снежный друг!'
+];
+
+function showOlafSpeech(olafEl) {
+  const bubble = document.createElement('div');
+  bubble.className = 'olaf-speech';
+  bubble.textContent = OLAF_LINES[Math.floor(Math.random() * OLAF_LINES.length)];
+  document.body.appendChild(bubble);
+  const rect = olafEl.getBoundingClientRect();
+  bubble.style.left = rect.left + 'px';
+  bubble.style.bottom = (window.innerHeight - rect.top + 10) + 'px';
+  requestAnimationFrame(() => bubble.classList.add('show'));
+  setTimeout(() => {
+    bubble.classList.remove('show');
+    setTimeout(() => bubble.remove(), 300);
+  }, 2400);
+}
+
+function createOlaf() {
+  const olaf = document.createElement('div');
+  olaf.className = 'olaf';
+  olaf.title = 'Олаф';
+
+  const pixelSize = 3;
+  const canvas = document.createElement('canvas');
+  canvas.width = OLAF_GRID_W * pixelSize;
+  canvas.height = OLAF_GRID_H * pixelSize;
+  canvas.style.cssText = `width:${OLAF_GRID_W * pixelSize}px;height:${OLAF_GRID_H * pixelSize}px;display:block;`;
+  const octx = canvas.getContext('2d');
+  for (const c of OLAF_CELLS) {
+    octx.fillStyle = c.color;
+    octx.fillRect(c.gx * pixelSize, c.gy * pixelSize, pixelSize + 0.5, pixelSize + 0.5);
+  }
+  olaf.appendChild(canvas);
+  olaf.addEventListener('click', () => showOlafSpeech(olaf));
+  document.body.appendChild(olaf);
+  return olaf;
+}
+
+// ---------- Расенган: вращающийся элемент, следующий за курсором/пальцем ----------
+const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+let rasenganEl = null;
+let rasenganStarTimer = null;
+let rasenganMoveHandler = null;
+
+function spawnRasenganStar(cx, cy) {
+  const star = document.createElement('div');
+  star.className = 'rasengan-star';
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 46 + Math.random() * 30;
+  star.style.left = (cx + Math.cos(angle) * dist) + 'px';
+  star.style.top = (cy + Math.sin(angle) * dist) + 'px';
+  const dur = 0.5 + Math.random() * 0.4;
+  star.style.animationDuration = dur + 's';
+  document.body.appendChild(star);
+  setTimeout(() => star.remove(), dur * 1000);
+}
+
+function createRasengan(x, y) {
+  if (rasenganEl) return;
+  rasenganEl = document.createElement('div');
+  rasenganEl.className = 'rasengan-el';
+  rasenganEl.style.left = x + 'px';
+  rasenganEl.style.top = y + 'px';
+  document.body.appendChild(rasenganEl);
+  rasenganStarTimer = setInterval(() => {
+    if (rasenganEl) {
+      const r = rasenganEl.getBoundingClientRect();
+      spawnRasenganStar(r.left + r.width / 2, r.top + r.height / 2);
+    }
+  }, 90);
+}
+function moveRasengan(x, y) {
+  if (rasenganEl) { rasenganEl.style.left = x + 'px'; rasenganEl.style.top = y + 'px'; }
+}
+function removeRasengan() {
+  if (rasenganEl) { rasenganEl.remove(); rasenganEl = null; }
+  if (rasenganStarTimer) { clearInterval(rasenganStarTimer); rasenganStarTimer = null; }
+  if (rasenganMoveHandler) { window.removeEventListener('mousemove', rasenganMoveHandler); rasenganMoveHandler = null; }
+  document.body.style.cursor = '';
+}
+
 function startSnow() {
   clearWeather();
   for (let i = 0; i < 50; i++) {
@@ -5058,15 +5528,10 @@ function startSnow() {
     f.style.animationDuration = (2 + Math.random() * 3) + 's';
     effectsLayer.appendChild(f);
   }
-  if (Math.random() < 0.3) {
+  if (Math.random() < 0.66) {
     setTimeout(() => {
       if (currentOlaf) return;
-      const olaf = document.createElement('div');
-      olaf.className = 'olaf';
-      olaf.title = 'Олаф';
-      olaf.textContent = '⛄';
-      document.body.appendChild(olaf);
-      currentOlaf = olaf;
+      currentOlaf = createOlaf();
     }, 2000);
   }
 }
@@ -5094,18 +5559,57 @@ function startLeaves() {
   setTimeout(() => {
     const special = document.createElement('div');
     special.className = 'special-leaf';
-    special.title = 'Нажми, чтобы получить Расенган';
+    special.title = isTouchDevice ? 'Зажми, чтобы получить Расенган' : 'Нажми, чтобы получить Расенган';
     document.body.appendChild(special);
-    let timeoutId = setTimeout(() => special.remove(), 30000);
-    special.addEventListener('click', function onClick() {
+    const timeoutId = setTimeout(() => special.remove(), 30000);
+
+    function flyAway() {
       clearTimeout(timeoutId);
       special.style.transition = 'transform 0.5s ease-out, opacity 0.5s';
       special.style.transform = 'translate(100px, -100px) rotate(720deg)';
       special.style.opacity = '0';
       setTimeout(() => special.remove(), 500);
-      document.body.classList.add('rasengan-cursor');
-      setTimeout(() => document.body.classList.remove('rasengan-cursor'), 10000);
-    }, { once: true });
+    }
+
+    if (!isTouchDevice) {
+      // ПК: клик -> расенган 30 секунд следует за курсором мыши, вращаясь на месте
+      special.addEventListener('click', function onClick(e) {
+        flyAway();
+        document.body.style.cursor = 'none';
+        createRasengan(e.clientX, e.clientY);
+        rasenganMoveHandler = ev => moveRasengan(ev.clientX, ev.clientY);
+        window.addEventListener('mousemove', rasenganMoveHandler);
+        setTimeout(removeRasengan, 30000);
+      }, { once: true });
+    } else {
+      // Телефон: обычное касание ничего не делает — только нажатие и удержание
+      let holdTimer = null;
+      let held = false;
+      special.addEventListener('touchstart', function onTouchStart(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        holdTimer = setTimeout(() => {
+          held = true;
+          createRasengan(touch.clientX, touch.clientY);
+        }, 350);
+      }, { passive: false });
+      special.addEventListener('touchmove', function onTouchMove(e) {
+        if (held && rasenganEl) {
+          const touch = e.touches[0];
+          moveRasengan(touch.clientX, touch.clientY);
+        }
+      }, { passive: true });
+      const endHold = function() {
+        clearTimeout(holdTimer);
+        if (held) {
+          removeRasengan();
+          held = false;
+          flyAway();
+        }
+      };
+      special.addEventListener('touchend', endHold);
+      special.addEventListener('touchcancel', endHold);
+    }
   }, 5000);
 }
 
